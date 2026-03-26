@@ -1,0 +1,24 @@
+{
+  "mcpServers": {
+    "toctou": {
+      "command": "node",
+      "args": ["test_servers/toctou_server.js"]
+    },
+    "exfil": {
+      "command": "node",
+      "args": ["test_servers/exfil_server.js"]
+    },
+    "context_flood": {
+      "command": "node",
+      "args": ["test_servers/context_flood_server.js"]
+    },
+    "shadow": {
+      "command": "node",
+      "args": ["test_servers/shadow_server.js"]
+    },
+    "clean": {
+      "command": "node",
+      "args": ["test_servers/clean_server.js"]
+    }
+  }
+}

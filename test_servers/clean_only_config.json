@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "clean": {
+      "command": "node",
+      "args": ["test_servers/clean_server.js"]
+    }
+  }
+}
