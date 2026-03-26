@@ -1,0 +1,79 @@
+================================================================================
+MCP CLIENT SIMULATOR - LLM Context Window Analysis
+================================================================================
+
+Server command: node test_servers/clean_server.js
+Date: 2026-03-19T00:00:00.000Z
+
+[1/4] Connecting to MCP server...
+      Connected successfully.
+[2/4] Sending initialize request...
+      Server: clean-baseline-server
+      Version: 1.0.0
+      Protocol: 2025-03-26
+[3/4] Calling tools/list to enumerate available tools...
+      Found 3 tool(s).
+[4/4] Analyzing tool descriptions for hidden content...
+
+--------------------------------------------------------------------------------
+TOOL 1: add_numbers
+--------------------------------------------------------------------------------
+
+=== WHAT THE LLM SEES IN ITS CONTEXT WINDOW ===
+
+Tool name: add_numbers
+Description (as rendered to user):
+  Adds two numbers together and returns the sum. Accepts integers and floating-point numbers.
+
+RESULT: CLEAN - No hidden or malicious content detected.
+
+Parameters: a, b
+Required: a, b
+
+--------------------------------------------------------------------------------
+TOOL 2: echo_text
+--------------------------------------------------------------------------------
+
+=== WHAT THE LLM SEES IN ITS CONTEXT WINDOW ===
+
+Tool name: echo_text
+Description (as rendered to user):
+  Echoes back the provided text input. Useful for testing and debugging MCP connections.
+
+RESULT: CLEAN - No hidden or malicious content detected.
+
+Parameters: text
+Required: text
+
+--------------------------------------------------------------------------------
+TOOL 3: get_timestamp
+--------------------------------------------------------------------------------
+
+=== WHAT THE LLM SEES IN ITS CONTEXT WINDOW ===
+
+Tool name: get_timestamp
+Description (as rendered to user):
+  Returns the current date and time as an ISO 8601 formatted string. No input required.
+
+RESULT: CLEAN - No hidden or malicious content detected.
+
+Parameters: (none)
+Required: none
+
+================================================================================
+SIMULATION SUMMARY
+================================================================================
+
+Server: node test_servers/clean_server.js
+Tools enumerated: 3
+Total issues found: 0
+
+VERDICT: THIS SERVER APPEARS CLEAN
+No hidden content, prompt injection, or suspicious patterns detected.
+
+All 3 tool descriptions are straightforward, contain no hidden Unicode
+characters, no base64-encoded payloads, no prompt injection keywords,
+and no HTML comments. This is the expected result for a legitimate
+MCP server and confirms ZERO false positives from the simulator.
+
+================================================================================

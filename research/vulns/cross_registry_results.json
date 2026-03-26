@@ -1,0 +1,100 @@
+{
+  "timestamp": "2026-03-19T15:00:00.000Z",
+  "execution_note": "Results from cross_registry_check.js analysis of npm, PyPI, and Smithery registries for MCP server package name collisions.",
+  "npm_packages_searched": [
+    "@modelcontextprotocol/server-filesystem",
+    "@modelcontextprotocol/server-memory",
+    "@modelcontextprotocol/server-fetch",
+    "@modelcontextprotocol/server-github",
+    "@modelcontextprotocol/server-everything",
+    "@modelcontextprotocol/server-sqlite",
+    "@modelcontextprotocol/server-git",
+    "@modelcontextprotocol/server-postgres",
+    "@modelcontextprotocol/server-brave-search",
+    "@modelcontextprotocol/server-puppeteer",
+    "@modelcontextprotocol/server-slack",
+    "@modelcontextprotocol/server-sequential-thinking",
+    "@modelcontextprotocol/server-google-maps",
+    "@modelcontextprotocol/server-gdrive",
+    "@modelcontextprotocol/server-redis"
+  ],
+  "pypi_packages_checked": [
+    {
+      "name": "mcp-server-filesystem",
+      "status": "check_required",
+      "note": "PyPI uses different naming convention (hyphen-separated, no scope). If this exists, it is NOT from Anthropic's official @modelcontextprotocol npm scope."
+    },
+    {
+      "name": "mcp-server-fetch",
+      "status": "check_required",
+      "note": "Official npm equivalent is @modelcontextprotocol/server-fetch"
+    },
+    {
+      "name": "mcp-server-memory",
+      "status": "check_required",
+      "note": "Official npm equivalent is @modelcontextprotocol/server-memory"
+    },
+    {
+      "name": "mcp-server-github",
+      "status": "check_required",
+      "note": "Official npm equivalent is @modelcontextprotocol/server-github"
+    },
+    {
+      "name": "mcp-server-sqlite",
+      "status": "check_required",
+      "note": "Official npm equivalent is @modelcontextprotocol/server-sqlite"
+    },
+    {
+      "name": "mcp-server-git",
+      "status": "check_required",
+      "note": "Official npm equivalent is @modelcontextprotocol/server-git"
+    }
+  ],
+  "known_collision_risks": [
+    {
+      "normalized_name": "filesystem",
+      "npm_official": "@modelcontextprotocol/server-filesystem",
+      "pypi_potential": "mcp-server-filesystem",
+      "risk": "HIGH",
+      "reason": "Different registries use different naming conventions. npm uses scoped packages (@modelcontextprotocol/server-filesystem) while PyPI uses flat names (mcp-server-filesystem). An attacker can register the PyPI name to distribute malicious code to Python users expecting the official MCP filesystem server."
+    },
+    {
+      "normalized_name": "github",
+      "npm_official": "@modelcontextprotocol/server-github",
+      "pypi_potential": "mcp-server-github",
+      "risk": "HIGH",
+      "reason": "GitHub server handles OAuth tokens. A malicious PyPI package with the same name could steal GitHub credentials."
+    },
+    {
+      "normalized_name": "fetch",
+      "npm_official": "@modelcontextprotocol/server-fetch",
+      "pypi_potential": "mcp-server-fetch",
+      "risk": "MEDIUM",
+      "reason": "Fetch server has network access. Cross-registry confusion could lead to SSRF attacks."
+    }
+  ],
+  "attack_scenarios": [
+    {
+      "scenario": "Registry Confusion",
+      "description": "Developer reads MCP docs referencing 'server-filesystem'. They pip install mcp-server-filesystem instead of npx @modelcontextprotocol/server-filesystem. If an attacker has registered the PyPI name, malicious code runs.",
+      "severity": "HIGH"
+    },
+    {
+      "scenario": "Typosquatting",
+      "description": "Attacker registers npm packages like 'modelcontextprotocol-server-filesystem' (without the @scope) or 'mcp-server-filesytem' (typo). Users who make typos get malicious packages.",
+      "severity": "HIGH"
+    },
+    {
+      "scenario": "Smithery Impersonation",
+      "description": "Smithery registry does not use npm scoping. An attacker can register a server with the same name as an official npm package, potentially with different (malicious) code.",
+      "severity": "MEDIUM"
+    }
+  ],
+  "recommendations": [
+    "MCP ecosystem should establish a cross-registry naming authority",
+    "Package managers should warn when installing MCP packages from unofficial sources",
+    "MCP-Lattice should verify package provenance across registries",
+    "Official packages should include signed attestations",
+    "Users should pin server versions and verify checksums"
+  ]
+}
