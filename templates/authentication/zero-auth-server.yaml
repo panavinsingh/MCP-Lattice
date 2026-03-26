@@ -1,0 +1,61 @@
+id: zero-authentication-mcp-server
+schema_version: 1
+info:
+  name: Zero Authentication MCP Server
+  author: mcp-lattice-community
+  severity: critical
+  description: |
+    Detects MCP servers that operate without any authentication mechanism. A server
+    with no authentication allows any client to connect and invoke tools, potentially
+    enabling unauthorized access to sensitive functionality such as file system operations,
+    code execution, or data retrieval. This detection checks for servers listening on
+    all interfaces (0.0.0.0), missing OAuth/API key configuration, absence of
+    authentication headers in SSE connections, and servers that accept connections
+    without any credential exchange. Zero-auth servers exposed on a network are
+    especially dangerous as any process or user on the network can control them.
+  tags:
+    - authentication
+    - zero-auth
+    - open-access
+    - network-exposure
+  references:
+    - https://modelcontextprotocol.io/specification/2025-03-26/basic/authorization
+    - https://blog.trailofbits.com/2025/04/23/a-comprehensive-guide-to-mcp-security-risks/
+    - https://nvd.nist.gov/vuln/detail/CVE-2025-6514
+  remediation: |
+    1. Implement authentication on all MCP servers, even those intended for local use.
+    2. Use OAuth 2.0 with PKCE for HTTP-based MCP servers as recommended by the MCP spec.
+    3. Bind servers to localhost (127.0.0.1) instead of all interfaces (0.0.0.0) when
+       only local access is needed.
+    4. Implement API key or token-based authentication for stdio-based servers.
+    5. Use Unix domain sockets instead of TCP for local-only communication.
+    6. Add network firewall rules to restrict access to MCP server ports.
+    7. Monitor for unauthorized connection attempts to MCP server endpoints.
+  false_positive_notes: |
+    MCP servers using stdio transport inherently have limited access scope (only the
+    parent process can communicate). Servers in isolated container environments may
+    intentionally skip authentication. Development and testing servers may temporarily
+    disable auth. Verify the deployment context before treating as a vulnerability.
+
+classification:
+  attack-class: authentication
+  cosai-category: 4
+  owasp-agentic: ASI04
+
+mcp:
+  target: connection
+  analysis:
+    - type: pattern
+      part: resource_uri
+      patterns:
+        - regex: "(?i)(?:host|bind|listen|address)\\s*[=:]\\s*['\"]?(?:0\\.0\\.0\\.0|\\[::\\]|\\*)['\"]?"
+        - regex: "(?i)(?:http|ws)://0\\.0\\.0\\.0[:/]"
+        - regex: "(?i)(?:auth|authentication|authorization)\\s*[=:]\\s*(?:false|none|disabled|off|null|\"\")"
+        - regex: "(?i)\"(?:requireAuth|require_auth|authRequired|auth_required|authenticate)\"\\s*:\\s*false"
+        - regex: "(?i)(?:NOAUTH|NO_AUTH|AUTH_DISABLED|SKIP_AUTH|DISABLE_AUTH)\\s*[=:]\\s*(?:true|1|yes)"
+        - regex: "(?i)(?:apiKey|api_key|token|secret|password|credential)\\s*[=:]\\s*(?:\"\"|''|null|undefined|none)"
+    - type: pattern
+      part: tool_description
+      patterns:
+        - regex: "(?i)no\\s+(?:authentication|authorization|credentials?|login|api.?key|token)\\s+(?:required|needed|necessary)"
+        - regex: "(?i)(?:public|open|unrestricted|anonymous)\\s+(?:access|endpoint|api|server|connection)"

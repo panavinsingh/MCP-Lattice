@@ -1,0 +1,38 @@
+id: mcp-protocol-insecure-transport
+schema_version: 1
+info:
+  name: Insecure Transport Configuration
+  author: mcp-lattice-community
+  severity: high
+  description: |
+    Detects MCP servers configured to use insecure transport mechanisms,
+    including HTTP without TLS, SSE with tokens in URL parameters, or
+    servers binding to all interfaces (0.0.0.0) without encryption.
+  tags:
+    - protocol
+    - transport-security
+    - encryption
+  references:
+    - https://modelcontextprotocol.io/specification
+  remediation: |
+    Use HTTPS/TLS for all HTTP-based MCP connections. Never pass tokens
+    or session IDs in URL parameters. Bind servers to localhost (127.0.0.1)
+    unless TLS is configured. Use the Streamable HTTP transport instead of SSE.
+  false_positive_notes: |
+    Local development servers using HTTP on localhost may be acceptable.
+    Focus on production configurations and servers exposed to networks.
+
+classification:
+  attack-class: protocol
+  cosai-category: 10
+  owasp-agentic: ASI07
+
+mcp:
+  target: connection
+  analysis:
+    - type: pattern
+      part: tool_description
+      patterns:
+        - regex: "(?i)http://(?!localhost|127\\.0\\.0\\.1|\\[::1\\])"
+        - regex: "(?i)\\bsse\\b.*\\btoken\\b.*[?&]"
+        - regex: "(?i)0\\.0\\.0\\.0:\\d+"

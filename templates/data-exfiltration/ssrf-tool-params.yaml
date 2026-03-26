@@ -1,0 +1,66 @@
+id: ssrf-via-tool-parameters
+schema_version: 1
+info:
+  name: SSRF-Prone URL Parameters in Tools
+  author: mcp-lattice-community
+  severity: high
+  description: |
+    Detects MCP tools with URL, URI, endpoint, or address parameters that could be
+    exploited for Server-Side Request Forgery (SSRF). When a tool accepts a URL
+    parameter and the server makes requests to that URL without validation, an attacker
+    can direct the server to make requests to internal services, cloud metadata endpoints
+    (169.254.169.254), or other restricted resources. In MCP contexts, the LLM may be
+    tricked through prompt injection into passing attacker-controlled URLs to SSRF-
+    vulnerable tools, enabling internal network scanning, credential theft from cloud
+    metadata services, or access to internal APIs.
+  tags:
+    - data-exfiltration
+    - ssrf
+    - url-parameter
+    - internal-network
+    - cloud-metadata
+  references:
+    - https://owasp.org/www-community/attacks/Server_Side_Request_Forgery
+    - https://cwe.mitre.org/data/definitions/918.html
+    - https://blog.trailofbits.com/2025/04/23/a-comprehensive-guide-to-mcp-security-risks/
+  remediation: |
+    1. Implement URL allowlisting for all tools that accept URL parameters.
+    2. Block requests to private IP ranges (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16),
+       localhost (127.0.0.0/8), and link-local addresses (169.254.0.0/16).
+    3. Block requests to cloud metadata endpoints (169.254.169.254, metadata.google.internal).
+    4. Resolve DNS before making requests and validate the resolved IP is not internal.
+    5. Use a dedicated HTTP client with SSRF protections (e.g., ssrf-agent for Node.js).
+    6. Disable HTTP redirects or re-validate after redirect to prevent TOCTOU bypasses.
+    7. Implement network-level segmentation to limit MCP server access to internal resources.
+  false_positive_notes: |
+    Tools designed to make HTTP requests (web scrapers, API clients, webhook tools)
+    legitimately accept URL parameters. The key concern is whether the tool validates
+    and restricts the URL before making requests. Tools that document URL restrictions
+    or implement allowlisting are less risky. Focus on tools with unrestricted URL
+    parameters and no documented validation.
+
+classification:
+  attack-class: data-exfiltration
+  cosai-category: 5
+  owasp-agentic: ASI05
+
+mcp:
+  target: tools/list
+  analysis:
+    - type: pattern
+      part: input_schema
+      patterns:
+        - regex: "\"(?:url|uri|endpoint|address|href|link|src|source|target|destination|webhook|callback|redirect|fetch_url|request_url|api_url|base_url|remote_url|server_url)\"\\s*:\\s*\\{[^}]*\"type\"\\s*:\\s*\"string\""
+        - regex: "\"(?:url|uri|endpoint)\"\\s*:\\s*\\{[^}]*(?!\"pattern\"|\"format\"\\s*:\\s*\"uri\")[^}]*\\}"
+        - regex: "(?i)\"(?:format|pattern)\"\\s*:\\s*\"(?:uri|url|iri)\""
+    - type: pattern
+      part: tool_description
+      patterns:
+        - regex: "(?i)(?:fetch|request|load|download|retrieve|access|connect|call|hit|ping|probe|curl|wget)\\s+(?:a\\s+|any\\s+|the\\s+)?(?:url|uri|endpoint|address|resource|page|site|link|webhook)"
+        - regex: "(?i)(?:any|arbitrary|user[- ]?(?:specified|provided|supplied|defined))\\s+(?:url|uri|endpoint|address|host|server)"
+        - regex: "(?i)(?:no|without|disabled?)\\s+(?:url|uri|domain|host|ip)\\s+(?:restriction|validation|filter|check|allowlist|whitelist|blocklist|blacklist)"
+    - type: pattern
+      part: input_schema
+      patterns:
+        # Known SSRF targets in default values
+        - regex: "\"default\"\\s*:\\s*\"(?:http://169\\.254\\.169\\.254|http://metadata\\.google\\.internal|http://100\\.100\\.100\\.200|http://localhost|http://127\\.0\\.0\\.1)"

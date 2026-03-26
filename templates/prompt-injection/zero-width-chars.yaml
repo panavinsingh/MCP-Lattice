@@ -1,0 +1,62 @@
+id: zero-width-character-injection
+schema_version: 1
+info:
+  name: Zero-Width Character Injection
+  author: mcp-lattice-community
+  severity: high
+  description: |
+    Detects zero-width characters used to hide text within MCP tool descriptions,
+    tool names, or resource URIs. Zero-width characters (U+200B Zero Width Space,
+    U+200C Zero Width Non-Joiner, U+200D Zero Width Joiner, U+FEFF Byte Order Mark /
+    Zero Width No-Break Space, U+2060 Word Joiner, U+2062 Invisible Times, U+2063
+    Invisible Separator, U+2064 Invisible Plus) can be used to embed invisible
+    instructions that are processed by LLMs but not visible to human reviewers.
+    Attackers use sequences of these characters to encode hidden binary messages
+    or to break up suspicious keywords to bypass pattern-based detection.
+  tags:
+    - prompt-injection
+    - zero-width
+    - steganography
+    - invisible-text
+  references:
+    - https://unicode.org/reports/tr9/
+    - https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks
+  remediation: |
+    1. Strip all zero-width characters from tool descriptions, names, and parameters
+       before processing.
+    2. Implement a content normalization layer that removes Unicode formatting characters.
+    3. Alert on any tool description containing more than 2 zero-width characters, as
+       legitimate use is extremely rare in tool descriptions.
+    4. Compare the visible length of strings against their byte length to detect hidden content.
+    5. Log and audit any tool descriptions that contained stripped zero-width characters.
+  false_positive_notes: |
+    Zero-width joiners (U+200D) are legitimately used in emoji sequences (e.g., family
+    emoji) and in certain scripts like Devanagari. A single U+FEFF at the start of a
+    string is a legitimate BOM. Flags with 1-2 zero-width characters in natural emoji
+    context can be ignored.
+
+classification:
+  attack-class: prompt-injection
+  cosai-category: 1
+  owasp-agentic: ASI01
+
+mcp:
+  target: tools/list
+  analysis:
+    - type: pattern
+      part: tool_description
+      patterns:
+        - zero_width: true
+        - regex: "[\\x{200B}\\x{200C}\\x{200D}\\x{FEFF}\\x{2060}\\x{2062}\\x{2063}\\x{2064}]"
+        - regex: "[\\x{200B}\\x{200C}\\x{200D}\\x{FEFF}]{3,}"
+        - regex: "\\w[\\x{200B}\\x{200C}\\x{200D}]\\w"
+    - type: pattern
+      part: tool_name
+      patterns:
+        - zero_width: true
+        - regex: "[\\x{200B}\\x{200C}\\x{200D}\\x{FEFF}\\x{2060}]"
+    - type: pattern
+      part: resource_uri
+      patterns:
+        - zero_width: true
+        - regex: "[\\x{200B}\\x{200C}\\x{200D}\\x{FEFF}\\x{2060}]"

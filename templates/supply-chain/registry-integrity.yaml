@@ -1,0 +1,63 @@
+id: unverified-registry-sources
+schema_version: 1
+info:
+  name: Unverified Registry Sources
+  author: mcp-lattice-community
+  severity: medium
+  description: |
+    Detects MCP server packages installed from unverified or potentially compromised
+    registry sources. This includes packages loaded from HTTP (non-HTTPS) registries,
+    custom registries without integrity verification, direct GitHub/GitLab tarball URLs
+    without commit hash pinning, raw file URLs from code hosting platforms, and local
+    file paths that may be world-writable. Using unverified sources exposes the MCP
+    client to man-in-the-middle attacks, compromised registries, or tampered packages.
+  tags:
+    - supply-chain
+    - registry
+    - integrity
+    - verification
+    - source-validation
+  references:
+    - https://cwe.mitre.org/data/definitions/494.html
+    - https://cwe.mitre.org/data/definitions/829.html
+    - https://blog.trailofbits.com/2025/04/23/a-comprehensive-guide-to-mcp-security-risks/
+  remediation: |
+    1. Only install MCP server packages from HTTPS registries with valid TLS certificates.
+    2. Use integrity hashes (sha512) in lock files to verify package contents.
+    3. Pin Git dependencies to specific commit hashes, not branch names or tags.
+    4. Avoid installing packages from direct URLs; use published registry packages instead.
+    5. Implement package signature verification where supported (npm provenance, Sigstore).
+    6. Audit all custom registry configurations for proper TLS and authentication.
+    7. Use private registry proxies that cache and verify packages from upstream registries.
+  false_positive_notes: |
+    Development environments may use local registries (Verdaccio) over HTTP for testing.
+    Private registries behind corporate firewalls may use self-signed certificates.
+    Monorepo setups may reference local file paths for inter-package dependencies.
+    Verify the deployment context and network security before treating as a vulnerability.
+
+classification:
+  attack-class: supply-chain
+  cosai-category: 6
+  owasp-agentic: ASI06
+
+mcp:
+  target: connection
+  analysis:
+    - type: pattern
+      part: resource_uri
+      patterns:
+        # HTTP (non-HTTPS) registry sources
+        - regex: "(?i)(?:registry|index[_-]?url)\\s*[=:]\\s*['\"]?http://(?!localhost|127\\.0\\.0\\.1|\\[::1\\])"
+        # Direct tarball/archive URLs without hash
+        - regex: "(?i)https?://(?:github|gitlab|bitbucket)\\.com/[^/]+/[^/]+/(?:archive|tarball|zipball)/(?:main|master|HEAD|develop|latest)"
+        # Raw file URLs from hosting platforms
+        - regex: "(?i)https?://raw\\.githubusercontent\\.com/[^/]+/[^/]+/(?:main|master|HEAD|refs/heads/)"
+        # Unpinned git URLs (no commit hash)
+        - regex: "(?i)git(?:\\+https?|\\+ssh)?://[^#]+(?:#(?:main|master|HEAD|develop))?$"
+        # Local paths that may be writable
+        - regex: "(?i)(?:file://|command\\s*[=:]\\s*['\"]?(?:python|node|npx|uvx)\\s+)(?:/tmp/|/var/tmp/|/dev/shm/|C:\\\\(?:Temp|Users\\\\Public))"
+        # Package URLs without integrity hash
+        - regex: "(?i)https?://[^\\s]+\\.(?:tgz|tar\\.gz|whl|zip)(?:\\?[^#]*)?(?!.*(?:integrity|sha|hash|checksum))"
+        # Unverified npm install patterns
+        - regex: "(?i)npm\\s+install\\s+https?://[^\\s]+"
+        - regex: "(?i)pip\\s+install\\s+(?:--no-verify|--trusted-host|--index-url\\s+http://)"

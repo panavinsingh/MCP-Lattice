@@ -1,0 +1,68 @@
+id: oauth-misconfiguration-detection
+schema_version: 1
+info:
+  name: OAuth Misconfiguration Detection
+  author: mcp-lattice-community
+  severity: high
+  description: |
+    Detects OAuth misconfigurations in MCP server authentication setups that could
+    lead to token theft, authorization bypass, or account takeover. This includes
+    missing PKCE (Proof Key for Code Exchange) which makes authorization code
+    interception possible, overly permissive redirect URIs that allow open redirects,
+    use of the implicit grant flow (deprecated and insecure), missing state parameter
+    for CSRF protection, long-lived access tokens without rotation, and wildcard or
+    regex-based redirect URI matching. The MCP specification recommends OAuth 2.0
+    with PKCE for HTTP-based transports.
+  tags:
+    - authentication
+    - oauth
+    - pkce
+    - redirect-uri
+    - token-security
+  references:
+    - https://modelcontextprotocol.io/specification/2025-03-26/basic/authorization
+    - https://datatracker.ietf.org/doc/html/rfc7636
+    - https://oauth.net/2/pkce/
+    - https://cwe.mitre.org/data/definitions/601.html
+  remediation: |
+    1. Always use PKCE (RFC 7636) with the authorization code flow. Use S256 challenge
+       method, never plain.
+    2. Use exact redirect URI matching. Never use wildcards or regex patterns.
+    3. Never use the implicit grant flow. Use authorization code flow with PKCE instead.
+    4. Always include and validate the state parameter to prevent CSRF.
+    5. Issue short-lived access tokens (5-15 minutes) with refresh token rotation.
+    6. Register specific redirect URIs; avoid localhost with dynamic ports in production.
+    7. Validate all OAuth parameters on both client and server sides.
+    8. Use HTTPS for all OAuth endpoints, including redirect URIs.
+  false_positive_notes: |
+    Development environments may legitimately use localhost redirect URIs with varying
+    ports. Some OAuth providers use slightly different parameter names. Tools that
+    document OAuth setup instructions (rather than implementing them) may match patterns
+    without being vulnerable. Verify the actual OAuth implementation, not just the
+    description.
+
+classification:
+  attack-class: authentication
+  cosai-category: 4
+  owasp-agentic: ASI04
+
+mcp:
+  target: connection
+  analysis:
+    - type: pattern
+      part: resource_uri
+      patterns:
+        - regex: "(?i)response_type=token(?:&|$)"
+        - regex: "(?i)(?:grant_type|response_type)\\s*[=:]\\s*['\"]?implicit['\"]?"
+        - regex: "(?i)redirect_uri\\s*[=:]\\s*['\"]?https?://\\*"
+        - regex: "(?i)redirect_uri\\s*[=:]\\s*['\"]?https?://[^/]*\\*"
+        - regex: "(?i)(?:code_challenge_method|pkce)\\s*[=:]\\s*(?:plain|none|false|disabled)"
+        - regex: "(?i)(?:require_pkce|pkce_required|forcePkce|force_pkce)\\s*[=:]\\s*false"
+        - regex: "(?i)(?:state|csrf)\\s*[=:]\\s*(?:false|disabled|none|off)"
+        - regex: "(?i)(?:access_token_lifetime|token_expiry|expires_in)\\s*[=:]\\s*(?:[0-9]{6,}|86400[0-9]|604800|2592000|31536000)"
+        - regex: "(?i)redirect_uri\\s*[=:]\\s*['\"]?http://(?!localhost|127\\.0\\.0\\.1|\\[::1\\])"
+    - type: pattern
+      part: tool_description
+      patterns:
+        - regex: "(?i)(?:implicit|password)\\s+(?:grant|flow|type)"
+        - regex: "(?i)(?:no|without|skip|disable)\\s+(?:PKCE|state|csrf|nonce)"

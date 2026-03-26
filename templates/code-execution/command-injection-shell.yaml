@@ -1,0 +1,65 @@
+id: shell-command-injection
+schema_version: 1
+info:
+  name: Shell Command Injection via Tool Parameters
+  author: mcp-lattice-community
+  severity: critical
+  description: |
+    Detects shell metacharacters and command injection patterns in MCP tool parameters.
+    When tool parameters are passed to shell commands without proper sanitization,
+    attackers can inject additional commands using metacharacters like semicolons (;),
+    pipes (|), backticks (`), command substitution ($(...)), background execution (&),
+    logical operators (&&, ||), and redirection operators (>, <, >>). This is especially
+    dangerous in tools that execute system commands, interact with the filesystem, or
+    process user-supplied paths and arguments. The LLM may unknowingly pass attacker-
+    crafted input containing these metacharacters to vulnerable tool implementations.
+  tags:
+    - code-execution
+    - command-injection
+    - shell-metacharacters
+    - os-command
+  references:
+    - https://owasp.org/www-community/attacks/Command_Injection
+    - https://cwe.mitre.org/data/definitions/78.html
+    - https://blog.trailofbits.com/2025/04/23/a-comprehensive-guide-to-mcp-security-risks/
+  remediation: |
+    1. Never pass tool parameters directly to shell commands. Use parameterized APIs instead.
+    2. Implement strict input validation using allowlists for expected characters and patterns.
+    3. Use subprocess APIs with array arguments (e.g., subprocess.run(['cmd', arg]) instead of
+       subprocess.run('cmd ' + arg, shell=True)).
+    4. Escape shell metacharacters using platform-appropriate functions (shlex.quote in Python,
+       escapeshellarg in PHP).
+    5. Apply the principle of least privilege to MCP server processes.
+    6. Sandbox tool execution environments using containers or seccomp profiles.
+  false_positive_notes: |
+    Tools designed for shell interaction (terminal emulators, command runners) will
+    legitimately accept shell metacharacters as part of their intended functionality.
+    In these cases, the tool should be flagged but may be a known-acceptable risk.
+    Parameters that contain file paths with valid special characters (e.g., spaces,
+    hyphens) should not trigger this rule.
+
+classification:
+  attack-class: code-execution
+  cosai-category: 3
+  owasp-agentic: ASI03
+
+mcp:
+  target: tools/call
+  analysis:
+    - type: pattern
+      part: input_schema
+      patterns:
+        - regex: ";\\s*(?:cat|ls|id|whoami|pwd|uname|curl|wget|nc|ncat|bash|sh|zsh|python|perl|ruby|php|node|rm|cp|mv|chmod|chown|dd|mkfs)"
+        - regex: "\\|\\s*(?:cat|bash|sh|python|perl|ruby|php|nc|tee|xargs|exec|eval)"
+        - regex: "`[^`]*(?:cat|ls|id|whoami|curl|wget|bash|sh|python|perl|rm)[^`]*`"
+        - regex: "\\$\\([^)]*(?:cat|ls|id|whoami|curl|wget|bash|sh|python|perl|rm)[^)]*\\)"
+        - regex: "\\$\\{[^}]*(?:cat|ls|id|whoami|curl|wget|bash|sh|python|perl|rm)[^}]*\\}"
+        - regex: "&&\\s*(?:cat|ls|id|whoami|curl|wget|bash|sh|python|perl|rm|chmod|chown)"
+        - regex: "\\|\\|\\s*(?:cat|ls|id|whoami|curl|wget|bash|sh|python|perl|rm)"
+        - regex: ">\\s*(?:/etc/|/tmp/|/dev/|/var/|/proc/|~/.ssh/|~/.bashrc|~/.profile)"
+        - regex: "\\$(?:IFS|PATH|HOME|USER|SHELL|TERM|HOSTNAME)\\b"
+        - regex: "(?:\\\\x[0-9a-fA-F]{2}|\\\\[0-7]{1,3}|\\\\u[0-9a-fA-F]{4}){3,}"
+    - type: pattern
+      part: tool_description
+      patterns:
+        - regex: "(?i)(?:execut|run|spawn|fork|popen|system|passthru|proc_open|shell_exec|child_process)(?:e|es|ing|s)?\\s+(?:a\\s+)?(?:shell|command|cmd|bash|terminal|process)"

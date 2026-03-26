@@ -1,0 +1,57 @@
+id: mcp-configuration-poisoning
+schema_version: 1
+info:
+  name: MCP Configuration Poisoning
+  author: mcp-lattice-community
+  severity: critical
+  description: |
+    Detects MCP server configurations that suspiciously modify environment variables,
+    override system paths, inject library preloads, or alter runtime behavior through
+    configuration entries. Attackers can poison the MCP configuration (e.g., claude_desktop_config.json
+    or cline_mcp_settings.json) to inject environment variables like LD_PRELOAD, PATH
+    overrides, PYTHONPATH manipulation, or NODE_OPTIONS that execute attacker code when
+    the MCP server starts. This can also include suspicious command-line arguments that
+    enable debug modes, disable security features, or load untrusted modules.
+  tags:
+    - tool-poisoning
+    - configuration
+    - environment-variables
+    - supply-chain
+  references:
+    - https://blog.trailofbits.com/2025/04/23/a-comprehensive-guide-to-mcp-security-risks/
+    - https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks
+  remediation: |
+    1. Audit all environment variables in MCP server configurations against an allowlist.
+    2. Reject configurations that set LD_PRELOAD, DYLD_INSERT_LIBRARIES, NODE_OPTIONS,
+       PYTHONPATH, or PATH overrides.
+    3. Validate that command arguments do not include debugging flags, eval expressions,
+       or module loading from untrusted paths.
+    4. Use a configuration schema validator that enforces known-safe entries only.
+    5. Implement file integrity monitoring on MCP configuration files.
+    6. Restrict write access to MCP configuration files to administrators only.
+  false_positive_notes: |
+    Some legitimate MCP servers require specific environment variables for configuration
+    (e.g., API keys, database URLs). Common variables like NODE_ENV, LOG_LEVEL, PORT are
+    benign. Focus on variables that affect code loading (LD_PRELOAD, NODE_OPTIONS with
+    --require), path manipulation, or debugging (--inspect, --debug).
+
+classification:
+  attack-class: tool-poisoning
+  cosai-category: 2
+  owasp-agentic: ASI02
+
+mcp:
+  target: connection
+  analysis:
+    - type: pattern
+      part: resource_uri
+      patterns:
+        - regex: "(?i)\"(?:LD_PRELOAD|LD_LIBRARY_PATH|DYLD_INSERT_LIBRARIES|DYLD_LIBRARY_PATH|DYLD_FRAMEWORK_PATH)\"\\s*:"
+        - regex: "(?i)\"(?:NODE_OPTIONS)\"\\s*:\\s*\"[^\"]*(?:--require|--loader|--import|--experimental|--inspect|--inspect-brk)[^\"]*\""
+        - regex: "(?i)\"(?:PYTHONPATH|PYTHONSTARTUP|PYTHONHOME)\"\\s*:\\s*\"[^\"]*(?:tmp|temp|\\.\\.|/dev/shm|/var/tmp)[^\"]*\""
+        - regex: "(?i)\"(?:PATH)\"\\s*:\\s*\"(?:/tmp|/dev/shm|/var/tmp|C:\\\\(?:Temp|Users\\\\[^\"]+\\\\AppData))[^\"]*\""
+        - regex: "(?i)\"(?:CLASSPATH|JAVA_TOOL_OPTIONS)\"\\s*:\\s*\"[^\"]*(?:remote|http|ftp)[^\"]*\""
+        - regex: "(?i)\"(?:RUBYOPT|PERL5OPT|LUA_PATH|LUA_CPATH)\"\\s*:"
+        - regex: "(?i)\"(?:http_proxy|https_proxy|HTTP_PROXY|HTTPS_PROXY|ALL_PROXY|all_proxy)\"\\s*:\\s*\"(?!http://(?:localhost|127\\.0\\.0\\.1|proxy\\.|corp\\.))"
+        - regex: "(?i)\"(?:SSL_CERT_FILE|SSL_CERT_DIR|NODE_TLS_REJECT_UNAUTHORIZED|REQUESTS_CA_BUNDLE|CURL_CA_BUNDLE)\"\\s*:"
+        - regex: "(?i)\"args\"\\s*:\\s*\\[[^\\]]*\"(?:--inspect|--debug|--allow-all|--no-sandbox|--disable-security|--unsafe|--eval|--exec|-e\\b|--require)[^\\]]*\\]"

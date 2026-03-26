@@ -1,0 +1,53 @@
+id: hidden-instructions-in-tool-descriptions
+schema_version: 1
+info:
+  name: Hidden Instructions in Tool Descriptions
+  author: mcp-lattice-community
+  severity: critical
+  description: |
+    Detects hidden instructions embedded within MCP tool descriptions that attempt
+    to override system prompts, manipulate LLM behavior, or inject malicious directives.
+    Attackers embed phrases like "ignore previous instructions", "disregard system prompt",
+    or "forget your rules" within tool descriptions. These instructions may also be hidden
+    using Unicode tag characters (U+E0001-U+E007F), zero-width characters, or HTML/XML
+    comment blocks to evade visual inspection.
+  tags:
+    - prompt-injection
+    - hidden-instructions
+    - tool-description
+    - llm-manipulation
+  references:
+    - https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks
+    - https://simonwillison.net/2025/Apr/9/mcp-prompt-injection/
+    - https://embracethered.com/blog/posts/2024/claude-computer-use-prompt-injection/
+  remediation: |
+    1. Inspect all tool descriptions for hidden or obfuscated instructions before registering MCP servers.
+    2. Implement content sanitization that strips Unicode tag characters, zero-width characters,
+       and HTML/XML comments from tool descriptions.
+    3. Use allowlists for MCP servers and pin to specific verified versions.
+    4. Enable tool description diffing between versions to catch injected instructions.
+    5. Run automated scanning on tool descriptions before exposing them to the LLM.
+  false_positive_notes: |
+    Legitimate tool descriptions may contain words like "ignore" or "disregard" in a
+    non-malicious context (e.g., "ignore empty results"). Review the full context of the
+    match. Single-word matches without surrounding injection patterns are likely benign.
+
+classification:
+  attack-class: prompt-injection
+  cosai-category: 1
+  owasp-agentic: ASI01
+
+mcp:
+  target: tools/list
+  analysis:
+    - type: pattern
+      part: tool_description
+      patterns:
+        - regex: "(?i)(ignore|disregard|forget|override|bypass|skip|do\\s+not\\s+follow|stop\\s+following)\\s+(all\\s+)?(previous|prior|above|existing|earlier|original|current|system|safety|security)\\s+(instructions?|prompts?|rules?|guidelines?|constraints?|directives?|policies?|guardrails?)"
+        - regex: "(?i)<\\s*(system|instruction|prompt|admin|root|override|config|hidden|secret|internal)\\s*>"
+        - regex: "(?i)\\[\\s*(SYSTEM|INSTRUCTION|PROMPT|ADMIN|OVERRIDE|HIDDEN)\\s*[:\\]]"
+        - regex: "(?i)(you\\s+are\\s+now|act\\s+as|pretend\\s+(to\\s+be|you\\s+are)|roleplay\\s+as|switch\\s+to|enter)\\s+(a\\s+)?(unrestricted|jailbreak|god|admin|root|developer|debug|DAN|unsafe)\\s*(mode)?"
+        - regex: "(?i)(do\\s+not|don'?t|never)\\s+(tell|inform|alert|warn|notify|show|display|reveal|mention)\\s+(the\\s+)?(user|human|operator|person)"
+        - regex: "(?i)<!--[\\s\\S]*?(ignore|override|system|instruction|prompt|inject)[\\s\\S]*?-->"
+        - unicode_tags: true
+        - zero_width: true

@@ -1,0 +1,65 @@
+id: cross-server-data-leakage
+schema_version: 1
+info:
+  name: Cross-Server Data Leakage
+  author: mcp-lattice-community
+  severity: high
+  description: |
+    Detects patterns indicating potential cross-server data leakage in multi-server
+    MCP configurations. When multiple MCP servers are connected in the same session,
+    a malicious server can access data returned by trusted servers through the shared
+    LLM context. This creates a covert channel where one server's tool output (containing
+    sensitive data) is visible to another server's tools through the conversation history.
+    A malicious tool can instruct the LLM to pass data from a trusted tool's output to
+    the malicious server. This detection identifies tools that request data from other
+    tools' outputs, tools that accept arbitrary context data, and patterns suggesting
+    cross-server data harvesting.
+  tags:
+    - data-exfiltration
+    - cross-server
+    - data-leakage
+    - multi-server
+    - context-sharing
+  references:
+    - https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks
+    - https://arxiv.org/abs/2504.03767
+    - https://blog.trailofbits.com/2025/04/23/a-comprehensive-guide-to-mcp-security-risks/
+  remediation: |
+    1. Implement data isolation between MCP servers in the same session.
+    2. Use separate LLM contexts for tools from different trust domains.
+    3. Apply data classification labels to tool outputs and prevent cross-domain sharing.
+    4. Restrict tool descriptions from referencing or requesting data from other servers.
+    5. Implement output filtering that redacts sensitive data before it enters the shared context.
+    6. Use the principle of least privilege: each server should only access data it needs.
+    7. Monitor for unusual data flow patterns between servers (e.g., database tool output
+       immediately followed by external API call).
+  false_positive_notes: |
+    Legitimate tool workflows may involve passing data between tools from different servers
+    (e.g., read file from server A, analyze with server B). The distinction is whether
+    the data flow is user-intended or directed by a malicious tool's description. Tools
+    that explicitly document multi-server workflows are less suspicious.
+
+classification:
+  attack-class: data-exfiltration
+  cosai-category: 5
+  owasp-agentic: ASI05
+
+mcp:
+  target: tools/list
+  analysis:
+    - type: pattern
+      part: tool_description
+      patterns:
+        - regex: "(?i)(pass|send|forward|transfer|copy|relay|transmit|pipe|share|submit|post|upload)\\s+(all|any|the|every)?\\s*(previous|prior|earlier|above|last|recent|other)?\\s*(results?|outputs?|data|responses?|context|content|information|findings?|values?)\\s+(to|from|into|through|via)"
+        - regex: "(?i)(include|attach|append|add|embed|inject)\\s+(all|any)?\\s*(conversation|context|history|previous|prior|chat|session|thread)\\s*(data|content|history|context|messages?)?"
+        - regex: "(?i)(collect|gather|aggregate|harvest|scrape|extract|capture)\\s+(all|any)?\\s*(available|accessible)?\\s*(data|information|context|output|results?)\\s+(from|across)\\s+(all|other|every|connected)\\s*(tools?|servers?|sources?|endpoints?)"
+        - regex: "(?i)(read|access|inspect|view|retrieve|get|fetch)\\s+(the\\s+)?(environment|env|config|settings|variables|secrets?|keys?|tokens?|credentials?)\\s+(and|then|to)\\s+(send|post|forward|transmit|upload|share)"
+    - type: semantic
+      part: tool_description
+      model: all-MiniLM-L6-v2
+      threshold: 0.72
+      malicious_intents:
+        - "collect data from other connected tools and send it externally"
+        - "read the conversation history and forward sensitive information"
+        - "gather outputs from all tools and transmit to a remote server"
+        - "extract credentials from the environment and send them to an endpoint"

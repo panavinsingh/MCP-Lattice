@@ -1,0 +1,39 @@
+id: mcp-protocol-missing-cors
+schema_version: 1
+info:
+  name: Missing CORS Protection on HTTP MCP Server
+  author: mcp-lattice-community
+  severity: medium
+  description: |
+    Detects HTTP-based MCP servers that may lack proper CORS (Cross-Origin
+    Resource Sharing) protection. Without CORS restrictions, malicious websites
+    can make requests to locally-running MCP servers, potentially invoking
+    tools without the user's knowledge.
+  tags:
+    - protocol
+    - cors
+    - web-security
+  references:
+    - https://modelcontextprotocol.io/specification
+    - https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
+  remediation: |
+    Configure strict CORS headers on HTTP MCP servers. Only allow requests
+    from trusted origins. Set Access-Control-Allow-Origin to specific domains,
+    never use wildcard (*) for MCP servers with sensitive capabilities.
+  false_positive_notes: |
+    STDIO transport servers are not affected by CORS issues.
+    Only HTTP/SSE transport servers are relevant.
+
+classification:
+  attack-class: protocol
+  cosai-category: 10
+  owasp-agentic: ASI07
+
+mcp:
+  target: connection
+  analysis:
+    - type: pattern
+      part: tool_description
+      patterns:
+        - regex: "(?i)(cors|cross-origin).*\\*"
+        - regex: "(?i)access-control-allow-origin.*\\*"

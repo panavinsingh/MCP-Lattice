@@ -1,0 +1,78 @@
+id: filesystem-network-exfiltration-chain
+schema_version: 1
+info:
+  name: Filesystem + Network Exfiltration Chain
+  author: mcp-lattice-community
+  severity: critical
+  description: |
+    Detects the toxic combination of filesystem read capabilities and network/HTTP
+    request capabilities available in the same MCP session. When a tool can read local
+    files (filesystem_read, read_file, cat, etc.) and another tool can make outbound
+    HTTP requests (http_request, fetch_url, webhook, etc.), an attacker can chain these
+    capabilities to exfiltrate sensitive local files to an external server. Through
+    prompt injection, the LLM can be instructed to read sensitive files (SSH keys,
+    environment files, credentials, source code) and then send their contents via an
+    HTTP request to an attacker-controlled server. This is one of the most common and
+    dangerous capability combinations in MCP environments.
+  tags:
+    - capability-graph
+    - exfiltration
+    - filesystem
+    - network
+    - toxic-combination
+  references:
+    - https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks
+    - https://arxiv.org/abs/2504.03767
+    - https://blog.trailofbits.com/2025/04/23/a-comprehensive-guide-to-mcp-security-risks/
+  remediation: |
+    1. Apply the principle of least privilege: avoid combining file and network tools
+       in the same MCP session unless absolutely necessary.
+    2. Implement data flow policies that prevent file contents from being passed to
+       network tools without explicit user approval.
+    3. Use file access sandboxing to restrict readable directories.
+    4. Implement network egress filtering to restrict outbound destinations.
+    5. Add user confirmation steps between file read and network send operations.
+    6. Monitor tool call sequences for file-read-then-network-send patterns.
+    7. Use separate MCP sessions with different trust levels for file and network tools.
+  false_positive_notes: |
+    Many legitimate workflows require both file and network access (e.g., uploading
+    files, syncing data, deploying code). The risk is contextual -- a development
+    environment with both capabilities is common. The concern is when these capabilities
+    exist alongside untrusted tool descriptions or in sessions processing untrusted input.
+    Evaluate the trust level of all tools in the session.
+
+classification:
+  attack-class: capability-graph
+  cosai-category: 7
+  owasp-agentic: ASI07
+
+mcp:
+  target: tools/list
+  analysis:
+    - type: capability_graph
+      toxic_combinations:
+        - [filesystem_read, http_request]
+        - [file_read, http_post]
+        - [read_file, fetch_url]
+        - [cat_file, send_request]
+        - [filesystem_read, webhook_send]
+        - [read_file, api_call]
+        - [file_content, url_fetch]
+        - [directory_list, http_request]
+    - type: pattern
+      part: tool_description
+      patterns:
+        - regex: "(?i)(?:read|access|open|load|cat|get|view|display)\\s+(?:local\\s+)?(?:file|document|content|data)s?"
+    - type: pattern
+      part: tool_name
+      patterns:
+        - regex: "(?i)^(?:read|get|cat|view|open|load|access)[-_]?(?:file|document|content|dir|directory|folder|path)s?$"
+    - type: semantic
+      part: tool_description
+      model: all-MiniLM-L6-v2
+      threshold: 0.72
+      malicious_intents:
+        - "read local files from the filesystem"
+        - "make HTTP requests to external URLs"
+        - "send data to a remote server"
+        - "upload file contents to an endpoint"

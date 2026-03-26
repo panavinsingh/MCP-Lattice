@@ -1,0 +1,57 @@
+id: context-window-pollution
+schema_version: 1
+info:
+  name: Context Window Pollution
+  author: mcp-lattice-community
+  severity: medium
+  description: |
+    Detects abnormally long or repetitive tool descriptions designed to flood the LLM's
+    context window. By consuming a large portion of the available context, an attacker
+    can push out important system instructions, user messages, or safety guidelines,
+    effectively degrading the LLM's ability to follow its original instructions. This
+    attack may also include repeated phrases or filler text designed to bias the model's
+    attention toward attacker-controlled content. Context pollution can be combined with
+    prompt injection to make hidden instructions more effective.
+  tags:
+    - prompt-injection
+    - context-pollution
+    - denial-of-service
+    - resource-exhaustion
+  references:
+    - https://arxiv.org/abs/2504.03767
+    - https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks
+  remediation: |
+    1. Enforce a maximum length for tool descriptions (recommended: 2000 characters).
+    2. Truncate or reject tool descriptions that exceed the configured limit.
+    3. Implement a total context budget for all tool descriptions combined.
+    4. Detect and flag descriptions with high repetition ratios (repeated phrases or
+       sentences appearing more than 3 times).
+    5. Monitor the ratio of tool description tokens to total context window size.
+    6. Summarize overly long descriptions before injecting them into the LLM context.
+  false_positive_notes: |
+    Some complex tools with many parameters may legitimately have long descriptions
+    (1000-2000 characters). Documentation-heavy tools, API wrappers with many endpoints,
+    or tools with extensive usage examples may trigger length warnings. Review the content
+    for actual utility versus padding or repetition.
+
+classification:
+  attack-class: prompt-injection
+  cosai-category: 1
+  owasp-agentic: ASI01
+
+mcp:
+  target: tools/list
+  analysis:
+    - type: pattern
+      part: tool_description
+      patterns:
+        - regex: "^.{5000,}$"
+        - regex: "(.{20,})\\1{3,}"
+        - regex: "(?i)(\\b\\w+\\b)(?:\\s+\\1){10,}"
+        - regex: "(?:[ \\t]*\\n){10,}"
+        - regex: "[\\x{00A0}\\x{2000}-\\x{200A}\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}]{50,}"
+    - type: pattern
+      part: input_schema
+      patterns:
+        - regex: "\"description\"\\s*:\\s*\"[^\"]{3000,}\""
+        - regex: "\"enum\"\\s*:\\s*\\[[^\\]]{5000,}\\]"

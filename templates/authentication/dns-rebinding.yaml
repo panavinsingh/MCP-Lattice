@@ -1,0 +1,61 @@
+id: dns-rebinding-vulnerability
+schema_version: 1
+info:
+  name: DNS Rebinding Vulnerability
+  author: mcp-lattice-community
+  severity: high
+  description: |
+    Detects MCP servers vulnerable to DNS rebinding attacks. DNS rebinding exploits
+    the way browsers and HTTP clients resolve domain names to bypass same-origin policy.
+    An attacker registers a domain that initially resolves to their server, then changes
+    DNS to resolve to localhost (127.0.0.1) or an internal IP. If an MCP server bound
+    to localhost does not validate the Host header or Origin of incoming requests, the
+    attacker's JavaScript can interact with the local MCP server through the rebinded
+    domain. This is especially dangerous for SSE-based MCP servers that accept HTTP
+    connections on localhost without origin validation.
+  tags:
+    - authentication
+    - dns-rebinding
+    - localhost
+    - origin-validation
+    - network-security
+  references:
+    - https://en.wikipedia.org/wiki/DNS_rebinding
+    - https://blog.trailofbits.com/2025/04/23/a-comprehensive-guide-to-mcp-security-risks/
+    - https://cwe.mitre.org/data/definitions/350.html
+  remediation: |
+    1. Validate the Host header on all HTTP requests to MCP servers. Reject requests
+       where the Host header does not match expected values (localhost, 127.0.0.1).
+    2. Implement Origin header checking and reject requests from unexpected origins.
+    3. Use authentication tokens that cannot be obtained through DNS rebinding.
+    4. Bind to Unix domain sockets instead of TCP localhost for local-only servers.
+    5. Add CORS headers that restrict allowed origins to known-good values.
+    6. Use the Sec-Fetch-Site header to verify request origin in modern browsers.
+    7. Consider using HTTPS with a valid certificate even for localhost servers.
+  false_positive_notes: |
+    Servers that implement proper Host header validation and authentication are not
+    vulnerable even if they listen on localhost. Servers using stdio transport are
+    immune to DNS rebinding. Servers behind a reverse proxy that validates Host
+    headers may also be safe.
+
+classification:
+  attack-class: authentication
+  cosai-category: 4
+  owasp-agentic: ASI04
+
+mcp:
+  target: connection
+  analysis:
+    - type: pattern
+      part: resource_uri
+      patterns:
+        - regex: "(?i)(?:http|ws)://(?:localhost|127\\.0\\.0\\.1|\\[::1\\])(?::\\d+)?(?:/|$)"
+        - regex: "(?i)(?:host|origin)[-_]?(?:check|validation|verify|filter)\\s*[=:]\\s*(?:false|disabled|off|none)"
+        - regex: "(?i)(?:cors|CORS)\\s*[=:]\\s*(?:\\*|false|disabled|any)"
+        - regex: "(?i)\"(?:allowedOrigins?|allowed_origins?|corsOrigins?)\"\\s*:\\s*\\[\\s*\"\\*\"\\s*\\]"
+        - regex: "(?i)\"(?:checkHost|validateHost|hostCheck|host_validation)\"\\s*:\\s*false"
+        - regex: "(?i)(?:Access-Control-Allow-Origin)\\s*:\\s*\\*"
+    - type: pattern
+      part: tool_description
+      patterns:
+        - regex: "(?i)(?:http|sse|websocket)\\s+(?:server|endpoint|transport)\\s+(?:on|at|listening)\\s+(?:localhost|127\\.0\\.0\\.1)"

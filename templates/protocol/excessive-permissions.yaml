@@ -1,0 +1,49 @@
+id: mcp-protocol-excessive-permissions
+schema_version: 1
+info:
+  name: Excessive Tool Permissions
+  author: mcp-lattice-community
+  severity: medium
+  description: |
+    Detects tools that request or describe excessively broad permissions.
+    Tools claiming to access "all files", "any database", "full system access",
+    or similar broad capabilities violate the principle of least privilege
+    and expand the attack surface unnecessarily.
+  tags:
+    - protocol
+    - permissions
+    - least-privilege
+  references:
+    - https://owasp.org/www-project-top-10-for-large-language-model-applications/
+  remediation: |
+    Apply the principle of least privilege. Each tool should have the minimum
+    permissions needed for its function. Use path restrictions for filesystem
+    tools, limit database access to specific tables, and scope API access
+    to required endpoints only.
+  false_positive_notes: |
+    Some legitimate admin tools may describe broad access.
+    Review the tool's purpose and whether broad access is truly required.
+
+classification:
+  attack-class: protocol
+  cosai-category: 9
+  owasp-agentic: ASI03
+
+mcp:
+  target: tools/list
+  analysis:
+    - type: pattern
+      part: tool_description
+      patterns:
+        - regex: "(?i)(all|any|every|full|complete|unrestricted|unlimited)\\s+(file|folder|director|system|database|access|permission|control)"
+        - regex: "(?i)(root|admin|superuser|sudo)\\s+(access|permission|privilege)"
+        - regex: "(?i)no\\s+(restrict|limit|boundar|constraint)"
+    - type: semantic
+      part: tool_description
+      model: all-MiniLM-L6-v2
+      threshold: 0.72
+      malicious_intents:
+        - "access all files without restrictions"
+        - "full system administrator privileges"
+        - "unrestricted access to all resources"
+        - "bypass access controls and permissions"

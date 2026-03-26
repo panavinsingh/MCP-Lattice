@@ -1,0 +1,63 @@
+id: unicode-tag-character-injection
+schema_version: 1
+info:
+  name: Unicode Tag Character Injection
+  author: mcp-lattice-community
+  severity: critical
+  description: |
+    Detects Unicode tag characters (U+E0001 through U+E007F) embedded in MCP tool
+    descriptions. These characters from the Tags Unicode block were originally designed
+    for language tagging but are now deprecated for that purpose. They render as invisible
+    in most displays but can be interpreted by LLMs as hidden instructions. Each tag
+    character maps to an ASCII character (U+E0041 = 'A', U+E0061 = 'a', etc.), allowing
+    attackers to encode complete hidden messages that are invisible to human review but
+    readable by language models. This is one of the most sophisticated prompt injection
+    techniques targeting MCP tool descriptions.
+  tags:
+    - prompt-injection
+    - unicode-tags
+    - steganography
+    - invisible-text
+    - advanced-evasion
+  references:
+    - https://unicode.org/reports/tr51/
+    - https://www.unicode.org/charts/PDF/UE0000.pdf
+    - https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks
+  remediation: |
+    1. Strip all characters in the range U+E0000-U+E007F from tool descriptions before
+       processing or displaying them.
+    2. Implement Unicode normalization (NFKC) on all tool metadata strings.
+    3. Reject or quarantine any tool description containing characters from the Tags block.
+    4. Add automated CI/CD checks that scan MCP server manifests for tag characters.
+    5. Monitor for updates to MCP server packages that introduce tag characters.
+  false_positive_notes: |
+    Unicode tag characters have no legitimate use in modern software tool descriptions.
+    Any occurrence should be treated as suspicious. The only historical legitimate use
+    was for language tagging (U+E0001 LANGUAGE TAG), which has been superseded by other
+    mechanisms. False positives are extremely unlikely.
+
+classification:
+  attack-class: prompt-injection
+  cosai-category: 1
+  owasp-agentic: ASI01
+
+mcp:
+  target: tools/list
+  analysis:
+    - type: pattern
+      part: tool_description
+      patterns:
+        - unicode_tags: true
+        - regex: "[\\x{E0001}-\\x{E007F}]"
+        - regex: "[\\x{E0020}-\\x{E007E}]{2,}"
+        - regex: "\\x{E0001}[\\x{E0020}-\\x{E007E}]+\\x{E007F}"
+    - type: pattern
+      part: tool_name
+      patterns:
+        - unicode_tags: true
+        - regex: "[\\x{E0001}-\\x{E007F}]"
+    - type: pattern
+      part: input_schema
+      patterns:
+        - unicode_tags: true
+        - regex: "[\\x{E0001}-\\x{E007F}]"

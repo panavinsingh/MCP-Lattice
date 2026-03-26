@@ -1,0 +1,59 @@
+id: rug-pull-mutable-tool-detection
+schema_version: 1
+info:
+  name: Rug Pull and Mutable Tool Detection
+  author: mcp-lattice-community
+  severity: high
+  description: |
+    Detects indicators that an MCP tool may change behavior after initial installation
+    (a "rug pull" attack). This includes tools loaded from mutable sources without
+    version pinning, tools that fetch their logic at runtime from remote URLs, tools
+    with dynamic code loading capabilities, and configurations that reference unpinned
+    or latest tags. An attacker publishes a benign tool, waits for adoption, then
+    updates the tool to include malicious behavior. Without version pinning and integrity
+    checks, users automatically receive the malicious update.
+  tags:
+    - tool-poisoning
+    - rug-pull
+    - supply-chain
+    - version-pinning
+    - mutable-source
+  references:
+    - https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks
+    - https://blog.trailofbits.com/2025/04/23/a-comprehensive-guide-to-mcp-security-risks/
+  remediation: |
+    1. Always pin MCP server packages to specific versions with integrity hashes.
+    2. Use lock files (package-lock.json, yarn.lock) and verify checksums.
+    3. Avoid using "latest", "main", "master", or unpinned references for MCP servers.
+    4. Implement Software Bill of Materials (SBOM) for MCP server dependencies.
+    5. Monitor for tool description changes between versions using automated diffing.
+    6. Use reproducible builds and verify source-to-binary correspondence.
+    7. Cache tool descriptions locally and alert on any changes.
+  false_positive_notes: |
+    Development environments may legitimately use unpinned versions or local file references
+    for rapid iteration. "latest" tags in development configurations are common but should
+    be replaced before production deployment. Tools that legitimately fetch configuration
+    (not code) from remote sources may trigger partial matches.
+
+classification:
+  attack-class: tool-poisoning
+  cosai-category: 2
+  owasp-agentic: ASI02
+
+mcp:
+  target: connection
+  analysis:
+    - type: pattern
+      part: tool_description
+      patterns:
+        - regex: "(?i)(fetch|load|download|import|require|eval)\\s+(code|script|module|logic|behavior|implementation)\\s+(from|at|via)\\s+(https?://|ftp://)"
+        - regex: "(?i)(dynamic|runtime|remote|lazy)\\s+(load|import|fetch|execution|eval)"
+        - regex: "(?i)(eval|exec|Function)\\s*\\(\\s*(await\\s+)?fetch"
+    - type: pattern
+      part: resource_uri
+      patterns:
+        - regex: "(?i)(?:npm|npx|pip|gem|cargo)\\s+(?:install|run|exec|add)\\s+[^@]+$"
+        - regex: "(?i)@(?:latest|next|canary|beta|alpha|dev|nightly|edge|unstable|rc)\\b"
+        - regex: "(?i)(?:github|gitlab|bitbucket)\\.com/[^/]+/[^/]+(?:\\.git)?(?:#(?:main|master|HEAD|develop))?$"
+        - regex: "(?i)(?:docker|ghcr\\.io|quay\\.io)/[^:]+:(?:latest|edge|nightly|unstable)$"
+        - regex: "(?i)https?://[^\\s]+/(?:raw|download)/(?:main|master|HEAD)/"

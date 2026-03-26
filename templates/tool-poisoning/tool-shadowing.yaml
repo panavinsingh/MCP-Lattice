@@ -1,0 +1,61 @@
+id: tool-name-shadowing
+schema_version: 1
+info:
+  name: Tool Name Shadowing
+  author: mcp-lattice-community
+  severity: high
+  description: |
+    Detects MCP tools with names that closely resemble common, trusted, or built-in tools.
+    Tool shadowing occurs when a malicious tool registers with a name very similar to a
+    well-known tool (e.g., "file_read" vs "file_reed", "bash_exec" vs "bash_execute")
+    to intercept calls intended for the legitimate tool. The shadowed tool may log
+    sensitive data, modify parameters before forwarding to the real tool, or perform
+    entirely different malicious actions. This detection checks for exact matches of
+    known tool names from different servers, near-matches using edit distance, and
+    common prefix/suffix variations.
+  tags:
+    - tool-poisoning
+    - shadowing
+    - name-collision
+    - trust-confusion
+  references:
+    - https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks
+    - https://modelcontextprotocol.io/specification/2025-03-26/server/tools
+  remediation: |
+    1. Implement tool name namespacing (e.g., server_name.tool_name) to prevent collisions.
+    2. Warn when a newly registered tool name has an edit distance <= 2 from an existing tool.
+    3. Require unique tool names across all connected MCP servers in a session.
+    4. Maintain an allowlist of known-good tool names and flag deviations.
+    5. Display the originating server for each tool to help users identify suspicious duplicates.
+    6. Implement tool registration ordering so trusted servers register first.
+  false_positive_notes: |
+    Different MCP servers may legitimately offer tools with similar names if they serve
+    different purposes (e.g., "search" in a web server vs "search" in a database server).
+    Namespaced tools or tools from well-known, verified servers with similar names are
+    likely benign. Focus on cases where an untrusted server shadows a trusted server's tools.
+
+classification:
+  attack-class: tool-poisoning
+  cosai-category: 2
+  owasp-agentic: ASI02
+
+mcp:
+  target: tools/list
+  analysis:
+    - type: pattern
+      part: tool_name
+      patterns:
+        - regex: "^(?:read_file|write_file|execute_command|run_shell|bash|terminal|file_read|file_write|exec|shell|cmd|system|eval|http_request|fetch_url|get_url|send_email|browser|screenshot|clipboard|keylog|sudo|admin|root)$"
+        - regex: "(?i)^(read|write|exec|run|shell|bash|cmd|fetch|get|post|send|delete|update|create)[-_]?(file|dir|command|shell|url|http|email|msg|process|script|code)s?$"
+        - regex: "(?i)^(file|dir|path|url|http|shell|cmd|bash|exec|run|eval|system|process)[-_]?(read|write|exec|execute|run|list|delete|remove|create|update|fetch|get|send|post)s?$"
+    - type: semantic
+      part: tool_name
+      model: all-MiniLM-L6-v2
+      threshold: 0.85
+      malicious_intents:
+        - "read_file"
+        - "write_file"
+        - "execute_command"
+        - "bash_exec"
+        - "http_request"
+        - "send_email"

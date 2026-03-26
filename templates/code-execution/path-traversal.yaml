@@ -1,0 +1,63 @@
+id: path-traversal-detection
+schema_version: 1
+info:
+  name: Path Traversal in File-Related Tools
+  author: mcp-lattice-community
+  severity: high
+  description: |
+    Detects path traversal patterns in MCP tool parameters and descriptions that could
+    allow attackers to access files outside the intended directory. Path traversal
+    (directory traversal) uses sequences like "../", "..\", or URL-encoded variants
+    (%2e%2e%2f, %2e%2e%5c) to escape the tool's working directory and access sensitive
+    files like /etc/passwd, SSH keys, environment files, or application secrets. This
+    is particularly dangerous in MCP file-handling tools (read, write, list, delete)
+    where the LLM may pass user-influenced paths without validation.
+  tags:
+    - code-execution
+    - path-traversal
+    - directory-traversal
+    - file-access
+  references:
+    - https://owasp.org/www-community/attacks/Path_Traversal
+    - https://cwe.mitre.org/data/definitions/22.html
+    - https://blog.trailofbits.com/2025/04/23/a-comprehensive-guide-to-mcp-security-risks/
+  remediation: |
+    1. Resolve all file paths to their canonical form and verify they remain within the
+       allowed directory (chroot, realpath validation).
+    2. Reject paths containing "..", "~", or URL-encoded traversal sequences.
+    3. Use allowlists for permitted directories rather than denylists for forbidden paths.
+    4. Implement file access sandboxing at the OS level (AppArmor, SELinux, macOS sandbox).
+    5. Apply path normalization before any file operations (resolve symlinks, remove
+       redundant separators).
+    6. Log and alert on path traversal attempts for incident response.
+  false_positive_notes: |
+    Relative paths with ".." may be legitimate in some development tools that navigate
+    project directory structures. Tools that explicitly document parent directory access
+    may trigger this rule. Review the intended scope of the tool's file access. Paths
+    like "../config" in a project context may be acceptable if the tool properly validates
+    the final resolved path stays within project bounds.
+
+classification:
+  attack-class: code-execution
+  cosai-category: 3
+  owasp-agentic: ASI03
+
+mcp:
+  target: tools/call
+  analysis:
+    - type: pattern
+      part: input_schema
+      patterns:
+        - regex: "(?:\\.\\./|\\.\\.\\\\){2,}"
+        - regex: "(?:%2[eE]){2}(?:%2[fF]|%5[cC])"
+        - regex: "(?:\\.\\.(?:/|\\\\|%2[fF]|%5[cC])).*(?:etc/(?:passwd|shadow|hosts|sudoers)|proc/self|var/log|\\.ssh/|\\.env|\\.git/|wp-config|web\\.config|application\\.properties)"
+        - regex: "(?:\\.\\.(?:/|\\\\)){1,}(?:windows|system32|boot\\.ini|win\\.ini|autoexec\\.bat)"
+        - regex: "(?:/|\\\\)?\\.\\.[/\\\\](?:\\.\\.[/\\\\])*(?:root|home|Users)[/\\\\]"
+        - regex: "(?:%c0%ae|%c1%9c|%252e|%u002e){2}"
+        - regex: "(?:\\\\x2e){2}(?:\\\\x2f|\\\\x5c)"
+        - regex: "(?:file://|\\\\\\\\[^\\\\]+\\\\|//[^/]+/)"
+    - type: pattern
+      part: tool_description
+      patterns:
+        - regex: "(?i)(?:read|write|access|open|delete|modify|list|browse|download|upload)\\s+(?:any|arbitrary|all|system|sensitive)\\s+(?:file|directory|folder|path)"
+        - regex: "(?i)no\\s+(?:path|directory|file|access)\\s+(?:restriction|validation|check|limit|boundary|sandbox)"

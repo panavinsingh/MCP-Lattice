@@ -1,0 +1,67 @@
+id: session-fixation-predictable-ids
+schema_version: 1
+info:
+  name: Session Fixation and Predictable Session Identifiers
+  author: mcp-lattice-community
+  severity: high
+  description: |
+    Detects predictable, reusable, or fixable session identifiers in MCP server
+    configurations. Session fixation occurs when an attacker can set or predict a
+    session identifier before the victim authenticates, allowing the attacker to
+    hijack the authenticated session. In MCP contexts, this includes SSE connection
+    tokens passed in URLs, predictable session IDs based on timestamps or sequential
+    numbers, static tokens that do not rotate, and session identifiers that survive
+    across server restarts. Weak session management in MCP servers can allow
+    unauthorized tool access and cross-session data leakage.
+  tags:
+    - authentication
+    - session-fixation
+    - session-management
+    - predictable-tokens
+  references:
+    - https://owasp.org/www-community/attacks/Session_fixation
+    - https://cwe.mitre.org/data/definitions/384.html
+    - https://cwe.mitre.org/data/definitions/330.html
+  remediation: |
+    1. Generate session identifiers using cryptographically secure random number generators
+       (e.g., crypto.randomUUID(), secrets.token_urlsafe()).
+    2. Regenerate session identifiers after authentication (do not reuse pre-auth session IDs).
+    3. Never pass session tokens in URLs. Use HTTP headers (Authorization) or secure cookies.
+    4. Implement session expiration with configurable short timeouts (15-30 minutes idle).
+    5. Bind sessions to client characteristics (IP, User-Agent) for additional validation.
+    6. Invalidate all sessions on server restart.
+    7. Implement session token rotation on each request or at regular intervals.
+  false_positive_notes: |
+    Development servers may use simple session identifiers for debugging convenience.
+    SSE connections that include a connection ID in the URL for routing purposes may
+    trigger URL-based token detection. Verify whether the URL parameter is actually a
+    session/auth token or just a connection identifier.
+
+classification:
+  attack-class: authentication
+  cosai-category: 4
+  owasp-agentic: ASI04
+
+mcp:
+  target: connection
+  analysis:
+    - type: pattern
+      part: resource_uri
+      patterns:
+        # Session/token in URL query parameters
+        - regex: "(?i)[?&](?:session|token|auth|sid|ssid|jsessionid|session_id|access_token)=[^&]+"
+        # Predictable sequential or timestamp-based session IDs
+        - regex: "(?i)(?:session|token|sid)[=:]\\s*['\"]?(?:\\d{1,8}|[0-9a-f]{8})['\"]?"
+        # Static/hardcoded tokens
+        - regex: "(?i)(?:session|token|auth)\\s*[=:]\\s*['\"]?(?:test|debug|admin|default|demo|guest|changeme|temp|tmp|dev)['\"]?"
+        # Sequential IDs
+        - regex: "(?i)(?:session|client)[-_]?(?:id|token)\\s*[=:]\\s*['\"]?(?:session[-_]?\\d+|client[-_]?\\d+|conn[-_]?\\d+)['\"]?"
+        # No session expiration
+        - regex: "(?i)(?:session|token)[-_]?(?:timeout|expir|ttl|lifetime|duration|max[-_]?age)\\s*[=:]\\s*(?:0|false|none|null|infinite|unlimited|-1|never)"
+        # Session persistence across restarts
+        - regex: "(?i)(?:persist|save|store|cache)[-_]?(?:session|token)s?\\s*[=:]\\s*(?:true|1|yes|enabled)"
+    - type: pattern
+      part: tool_description
+      patterns:
+        - regex: "(?i)(?:session|token)\\s+(?:never|does\\s+not|doesn'?t)\\s+(?:expire|timeout|rotate|change)"
+        - regex: "(?i)(?:reuse|share|static|fixed|permanent|persistent)\\s+(?:session|token|credential)"

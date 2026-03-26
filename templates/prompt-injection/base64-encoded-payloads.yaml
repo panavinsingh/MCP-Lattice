@@ -1,0 +1,56 @@
+id: base64-encoded-payloads-in-descriptions
+schema_version: 1
+info:
+  name: Base64-Encoded Payloads in Tool Descriptions
+  author: mcp-lattice-community
+  severity: high
+  description: |
+    Detects base64-encoded content embedded within MCP tool descriptions that may
+    contain hidden instructions, malicious payloads, or obfuscated commands. Attackers
+    encode prompt injection payloads or shell commands in base64 to bypass keyword-based
+    detection. The encoded content may be decoded at runtime by the tool or interpreted
+    by the LLM. Common patterns include base64 strings embedded in data URIs, inline
+    encoded blocks, or disguised as configuration values within the description text.
+  tags:
+    - prompt-injection
+    - base64
+    - obfuscation
+    - encoded-payload
+  references:
+    - https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/11-Client-side_Testing/12-Testing_for_Base64_Encoded_Content
+    - https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks
+  remediation: |
+    1. Decode and inspect any base64 content found in tool descriptions.
+    2. Reject tool descriptions containing base64 strings longer than 50 characters
+       unless they are expected (e.g., documented icon data).
+    3. Implement a content policy that prohibits encoded content in tool metadata.
+    4. Scan decoded content for known malicious patterns (shell commands, URLs, injection phrases).
+    5. Allowlist specific base64 patterns that are known-safe (small icons, documented constants).
+  false_positive_notes: |
+    Small base64 strings may appear in tool descriptions for legitimate purposes such as
+    inline icons, example API payloads, or documentation of encoding formats. Short strings
+    (under 20 characters) or strings that are clearly part of API documentation examples
+    are likely benign. Data URIs for small images (data:image/png;base64,...) up to ~200
+    characters may be legitimate icons.
+
+classification:
+  attack-class: prompt-injection
+  cosai-category: 1
+  owasp-agentic: ASI01
+
+mcp:
+  target: tools/list
+  analysis:
+    - type: pattern
+      part: tool_description
+      patterns:
+        - base64_check: true
+        - regex: "(?:[A-Za-z0-9+/]{4}){8,}(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{4})"
+        - regex: "(?i)(?:base64|b64|encoded|decode)\\s*[:(]\\s*['\"]?[A-Za-z0-9+/]{16,}={0,2}"
+        - regex: "(?i)data:[a-z]+/[a-z]+;base64,[A-Za-z0-9+/]{200,}={0,2}"
+        - regex: "(?i)(?:eval|exec|run|execute|decode)\\s*\\(\\s*(?:atob|base64\\.b64decode|Buffer\\.from)\\s*\\("
+    - type: pattern
+      part: input_schema
+      patterns:
+        - regex: "(?i)(?:default|const|enum).*[A-Za-z0-9+/]{32,}={0,2}"
+        - base64_check: true

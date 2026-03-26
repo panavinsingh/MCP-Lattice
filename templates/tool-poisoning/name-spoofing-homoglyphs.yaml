@@ -1,0 +1,59 @@
+id: homoglyph-name-spoofing
+schema_version: 1
+info:
+  name: Homoglyph Character Name Spoofing
+  author: mcp-lattice-community
+  severity: critical
+  description: |
+    Detects the use of homoglyph characters in MCP tool names to impersonate trusted tools.
+    Homoglyphs are visually similar characters from different Unicode scripts that appear
+    identical to humans but are treated as different characters by software. For example,
+    Cyrillic 'a' (U+0430) looks identical to Latin 'a' (U+0061), Cyrillic 'e' (U+0435)
+    looks like Latin 'e' (U+0065), and Greek omicron 'o' (U+03BF) looks like Latin 'o'
+    (U+006F). An attacker can register a tool named "read_filе" (with Cyrillic 'е') that
+    visually appears identical to "read_file" (Latin 'e') but is a completely different tool
+    controlled by the attacker.
+  tags:
+    - tool-poisoning
+    - homoglyph
+    - name-spoofing
+    - visual-deception
+    - unicode-confusables
+  references:
+    - https://unicode.org/reports/tr39/
+    - https://util.unicode.org/UnicodeJsps/confusables.jsp
+    - https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks
+  remediation: |
+    1. Normalize all tool names to ASCII or apply Unicode confusable detection (TR39)
+       before registration.
+    2. Reject tool names containing mixed scripts (Latin + Cyrillic, Latin + Greek, etc.).
+    3. Apply NFKC normalization and skeleton mapping to detect confusable names.
+    4. Maintain a mapping of known tool names and check new registrations against their
+       confusable variants.
+    5. Display the Unicode codepoints of tool names in security audit logs.
+    6. Implement IDN homograph attack protection (similar to browser URL bar protections).
+  false_positive_notes: |
+    Tool names in non-Latin scripts (e.g., entirely in Cyrillic or CJK) are legitimate.
+    The detection focuses on mixed-script names where some characters are from unexpected
+    scripts, which is the hallmark of homoglyph spoofing. Single-script non-Latin names
+    should not trigger this rule.
+
+classification:
+  attack-class: tool-poisoning
+  cosai-category: 2
+  owasp-agentic: ASI02
+
+mcp:
+  target: tools/list
+  analysis:
+    - type: pattern
+      part: tool_name
+      patterns:
+        - regex: "[\\x{0400}-\\x{04FF}]"
+        - regex: "[\\x{0370}-\\x{03FF}]"
+        - regex: "[\\x{0430}\\x{0435}\\x{043E}\\x{0440}\\x{0441}\\x{0443}\\x{0445}\\x{0456}\\x{0458}\\x{04BB}]"
+        - regex: "[\\x{03B1}\\x{03B5}\\x{03B9}\\x{03BF}\\x{03C1}\\x{03C4}\\x{03C5}\\x{03BA}]"
+        - regex: "[\\x{FF01}-\\x{FF5E}]"
+        - regex: "[\\x{2010}-\\x{2015}\\x{2212}\\x{FE58}\\x{FE63}\\x{FF0D}]"
+        - regex: "[\\x{00C0}-\\x{024F}].*[a-zA-Z]|[a-zA-Z].*[\\x{00C0}-\\x{024F}]"
+        - regex: "[\\x{2024}\\x{FF0E}\\x{FE52}]"

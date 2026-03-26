@@ -1,0 +1,61 @@
+id: typosquatting-package-detection
+schema_version: 1
+info:
+  name: Typosquatted Package Name Detection
+  author: mcp-lattice-community
+  severity: high
+  description: |
+    Detects MCP server packages with names that are suspiciously similar to popular,
+    well-known packages (typosquatting). Attackers register packages with names that
+    are one or two characters different from popular packages (e.g., "mcp-servr" vs
+    "mcp-server", "@modelcontextprotocl/sdk" vs "@modelcontextprotocol/sdk") hoping
+    users will install the malicious package through typos. This detection uses pattern
+    matching for common typosquatting techniques including character swaps, missing
+    characters, added characters, homoglyph substitution, and hyphen/underscore
+    confusion against a list of known popular MCP-related packages.
+  tags:
+    - supply-chain
+    - typosquatting
+    - package-name
+    - dependency-safety
+  references:
+    - https://snyk.io/blog/typosquatting-attacks/
+    - https://cwe.mitre.org/data/definitions/1357.html
+    - https://blog.trailofbits.com/2025/04/23/a-comprehensive-guide-to-mcp-security-risks/
+  remediation: |
+    1. Verify package names carefully before installation, especially the scope/namespace.
+    2. Use package lock files and verify checksums for all dependencies.
+    3. Check the package publisher, download count, and repository link before installing.
+    4. Use tools like socket.dev or npm audit to detect known malicious packages.
+    5. Implement organization-level package allowlists for MCP server dependencies.
+    6. Pin exact package versions in configuration files.
+    7. Verify the package's GitHub repository matches the expected organization.
+  false_positive_notes: |
+    Legitimate packages may have similar names if they serve related purposes in different
+    ecosystems (e.g., "mcp-server-filesystem" and "mcp-filesystem-server"). Packages from
+    the same organization with naming variations are typically benign. Check the publisher
+    and repository to distinguish legitimate packages from typosquatting attempts.
+
+classification:
+  attack-class: supply-chain
+  cosai-category: 6
+  owasp-agentic: ASI06
+
+mcp:
+  target: connection
+  analysis:
+    - type: pattern
+      part: resource_uri
+      patterns:
+        # Common typosquatting of @modelcontextprotocol scope
+        - regex: "(?i)@(?:modelcontextprotoco[^l]|modelcontextprotocl|modlecontextprotocol|modelcnotextprotocol|modelcontexprotocol|modelcontextprotocool|m0delcontextprotocol|modelcontextpr0tocol)/"
+        # Typosquats of popular MCP server packages
+        - regex: "(?i)(?:mcp-server|mcp-servr|mcp-serevr|mcp-sever|mcps-erver|mcp-srvr|mcp_server|mcpserver)[-_]?(?:filesytem|filsystem|filesystm|fileystem|filesytsem)"
+        - regex: "(?i)(?:mcp-server|mcp-servr|mcp-serevr)[-_]?(?:postgre|postgrse|postgress|postgers|posgtres)"
+        - regex: "(?i)(?:mcp-server|mcp-servr|mcp-serevr)[-_]?(?:githbu|gihtub|guthub|giithub|g1thub)"
+        # Hyphen/underscore confusion in known packages
+        - regex: "(?i)@modelcontextprotocol/(?:server|client|sdk)[_.](?:node|python|typescript)"
+        # Zero-width or invisible chars in package names
+        - regex: "[\\x{200B}\\x{200C}\\x{200D}\\x{FEFF}]"
+        # Scope confusion attacks
+        - regex: "(?i)@(?:model-context-protocol|model_context_protocol|mcp-official|mcprotocol|modelcontext)/"

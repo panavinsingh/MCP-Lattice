@@ -1,0 +1,39 @@
+id: mcp-capability-privilege-escalation
+schema_version: 1
+info:
+  name: Privilege Escalation via Tool Combination
+  author: mcp-lattice-community
+  severity: high
+  description: |
+    Detects combinations where a tool with lower privileges can write files or
+    execute code, combined with a tool that has higher privileges or network access.
+    This creates privilege escalation paths where an attacker can chain tools to
+    achieve capabilities neither tool individually allows.
+  tags:
+    - capability-graph
+    - privilege-escalation
+    - cross-server
+  references:
+    - https://zenity.io/research/agentflayer
+  remediation: |
+    Review tool combinations for privilege escalation paths. Ensure that tools
+    with code execution capabilities cannot be chained with network-capable tools.
+    Apply sandboxing to code execution tools.
+  false_positive_notes: |
+    Development environments may legitimately have these combinations.
+    Focus on production and sensitive environments.
+
+classification:
+  attack-class: capability-graph
+  cosai-category: 9
+  owasp-agentic: ASI10
+
+mcp:
+  target: tools/list
+  analysis:
+    - type: capability_graph
+      toxic_combinations:
+        - [executes_code, accesses_network]
+        - [writes_filesystem, executes_code]
+        - [process_spawn, accesses_network]
+        - [executes_code, sends_http]

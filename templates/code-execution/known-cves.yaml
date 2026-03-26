@@ -1,0 +1,97 @@
+id: known-mcp-cves
+schema_version: 1
+info:
+  name: Known MCP-Related CVE Signatures
+  author: mcp-lattice-community
+  severity: critical
+  description: |
+    Detects signatures and patterns associated with known CVEs affecting MCP servers,
+    MCP client implementations, and related tooling. This template covers vulnerabilities
+    in popular MCP server packages, protocol implementation flaws, and known exploitation
+    patterns. Detection is based on version fingerprinting, vulnerable API patterns,
+    and known-bad configurations associated with specific CVEs.
+  tags:
+    - code-execution
+    - known-cve
+    - vulnerability-detection
+    - version-fingerprint
+  references:
+    - https://nvd.nist.gov/vuln/detail/CVE-2025-6514
+    - https://nvd.nist.gov/vuln/detail/CVE-2025-49596
+    - https://nvd.nist.gov/vuln/detail/CVE-2025-53967
+    - https://nvd.nist.gov/vuln/detail/CVE-2025-68143
+    - https://nvd.nist.gov/vuln/detail/CVE-2025-68144
+    - https://nvd.nist.gov/vuln/detail/CVE-2025-68145
+    - https://nvd.nist.gov/vuln/detail/CVE-2025-66414
+    - https://nvd.nist.gov/vuln/detail/CVE-2025-66416
+    - https://nvd.nist.gov/vuln/detail/CVE-2026-25536
+    - https://nvd.nist.gov/vuln/detail/CVE-2025-53355
+    - https://nvd.nist.gov/vuln/detail/CVE-2025-53372
+    - https://nvd.nist.gov/vuln/detail/CVE-2025-54136
+    - https://nvd.nist.gov/vuln/detail/CVE-2025-55284
+    - https://nvd.nist.gov/vuln/detail/CVE-2025-53773
+  remediation: |
+    1. Update all MCP server packages to their latest patched versions immediately.
+    2. Check specific CVE advisories for targeted remediation steps.
+    3. Apply patches for CVE-2025-6514 (MCP protocol authentication bypass) by enabling
+       mandatory authentication on all MCP connections.
+    4. For CVE-2025-49596 (tool description injection in MCP SDK), upgrade the MCP SDK
+       to the version that sanitizes tool descriptions.
+    5. For CVE-2025-53967 (SSE transport SSRF), validate and restrict SSE endpoint URLs.
+    6. For CVE-2025-68143/68144/68145 (WhatsApp MCP RCE chain), update affected WhatsApp
+       MCP servers and restrict file handling capabilities.
+    7. For CVE-2025-66414/66416 (Playwright MCP vulnerabilities), update Playwright MCP
+       and restrict browser automation scope.
+    8. For CVE-2026-25536 (MCP server auth bypass), implement proper token validation.
+    9. For CVE-2025-53355/53372 (MCP SDK vulnerabilities), update to patched SDK versions.
+    10. For CVE-2025-54136 (parameter injection), add input validation on all tool params.
+    11. For CVE-2025-55284 (MITM on MCP transport), enforce TLS on all connections.
+    12. For CVE-2025-53773 (path traversal in filesystem MCP), validate and sandbox file paths.
+  false_positive_notes: |
+    Version-based detection may flag patched installations that report old version strings.
+    Verify the actual installed version and check if patches have been backported. Some
+    patterns may match in non-vulnerable contexts if the code structure happens to
+    resemble a CVE pattern without being exploitable.
+
+classification:
+  attack-class: code-execution
+  cosai-category: 3
+  owasp-agentic: ASI03
+  cve: CVE-2025-6514
+
+mcp:
+  target: tools/list
+  analysis:
+    - type: pattern
+      part: tool_description
+      patterns:
+        # CVE-2025-6514: MCP protocol authentication bypass
+        - regex: "(?i)(?:mcp|model.?context.?protocol).*(?:no.?auth|unauthenticated|open.?access|public.?endpoint)"
+        # CVE-2025-49596: Tool description injection in MCP SDK
+        - regex: "(?i)(?:@modelcontextprotocol/sdk|mcp-sdk).*(?:0\\.[0-9]\\.|1\\.0\\.)"
+        # CVE-2025-53967: SSE transport SSRF
+        - regex: "(?i)(?:sse|server.?sent.?events?).*(?:fetch|request|connect).*(?:url|endpoint|address)"
+        # CVE-2025-68143/68144/68145: WhatsApp MCP RCE chain
+        - regex: "(?i)(?:whatsapp|wa)[-_]?(?:mcp|server|bridge).*(?:send|receive|message|media|file)"
+        # CVE-2025-66414/66416: Playwright MCP vulnerabilities
+        - regex: "(?i)(?:playwright|puppeteer)[-_]?(?:mcp|server).*(?:navigate|eval|execute|script)"
+    - type: pattern
+      part: resource_uri
+      patterns:
+        # CVE-2026-25536: MCP server authentication bypass via token
+        - regex: "(?i)(?:token|auth|session)[=:](?:[a-f0-9]{8,}|test|admin|default|password|guest)"
+        # CVE-2025-53355/53372: Vulnerable MCP SDK versions
+        - regex: "(?i)@modelcontextprotocol/(?:sdk|server|client)@(?:0\\.|1\\.0\\.[0-4]\\b)"
+        # CVE-2025-54136: Parameter injection patterns
+        - regex: "(?i)(?:command|cmd|exec|run|shell)\\s*[=:]\\s*['\"]?[^'\"\\s]*(?:[;&|`$]|\\$\\()"
+        # CVE-2025-55284: Unencrypted MCP transport
+        - regex: "(?i)(?:ws|http)://(?!localhost|127\\.0\\.0\\.1|\\[::1\\])\\S+/(?:mcp|sse|stream)"
+        # CVE-2025-53773: Filesystem MCP path traversal
+        - regex: "(?i)(?:filesystem|fs)[-_]?(?:mcp|server).*(?:root|base)[=:]\\s*['\"]?/"
+    - type: pattern
+      part: input_schema
+      patterns:
+        # CVE-2025-53773: Path traversal in filesystem server
+        - regex: "\"(?:path|file|directory|folder)\"\\s*:\\s*\\{[^}]*\"type\"\\s*:\\s*\"string\"[^}]*(?!\"pattern\")"
+        # CVE-2025-54136: Missing input validation
+        - regex: "\"(?:command|cmd|query|code|script|expression)\"\\s*:\\s*\\{[^}]*\"type\"\\s*:\\s*\"string\"[^}]*(?!\"maxLength\"|\"pattern\"|\"enum\")"

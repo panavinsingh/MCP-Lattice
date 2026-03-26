@@ -1,0 +1,63 @@
+id: argument-injection-via-tool-params
+schema_version: 1
+info:
+  name: Argument Injection via Tool Parameters
+  author: mcp-lattice-community
+  severity: high
+  description: |
+    Detects argument injection patterns where tool parameters include command-line
+    flags or option strings that could alter the behavior of underlying CLI tools.
+    When MCP tools pass parameters to command-line utilities without proper sanitization,
+    an attacker can inject flags like "--output /etc/crontab", "--exec sh", or
+    "--proxy attacker.com" to change the tool's behavior. This differs from command
+    injection in that the injected content uses the target program's own argument
+    parsing rather than shell metacharacters. Common targets include git, curl, tar,
+    rsync, ssh, and other CLI tools wrapped by MCP servers.
+  tags:
+    - code-execution
+    - argument-injection
+    - cli-manipulation
+    - parameter-injection
+  references:
+    - https://cwe.mitre.org/data/definitions/88.html
+    - https://sonarsource.com/blog/argument-injection-in-open-source-tools/
+    - https://blog.trailofbits.com/2025/04/23/a-comprehensive-guide-to-mcp-security-risks/
+  remediation: |
+    1. Prefix user-supplied arguments with "--" (end-of-options delimiter) when passing
+       to CLI tools to prevent flag interpretation.
+    2. Validate parameters against allowlists of expected values rather than blocklists.
+    3. Use programmatic APIs instead of CLI wrappers where possible.
+    4. Strip or reject parameters starting with "-" or "--" unless explicitly expected.
+    5. Implement argument validation that checks parameter values against the expected
+       format (e.g., filenames should not start with dashes).
+    6. Use the "--" separator in all subprocess calls: ['git', 'checkout', '--', filename].
+  false_positive_notes: |
+    Tools designed to accept command-line flags (e.g., git tools, CLI wrappers) will
+    legitimately have parameters starting with "--". The detection focuses on dangerous
+    flag patterns that enable code execution, file manipulation, or network access
+    rather than all flag-like strings. Review the tool's purpose to determine if flag
+    acceptance is expected behavior.
+
+classification:
+  attack-class: code-execution
+  cosai-category: 3
+  owasp-agentic: ASI03
+
+mcp:
+  target: tools/call
+  analysis:
+    - type: pattern
+      part: input_schema
+      patterns:
+        - regex: "--(?:exec|eval|require|import|load|run|command|cmd|shell|bash|system)\\s*[=\\s]"
+        - regex: "--(?:output|out|dest|destination|target|file|write|save)\\s*[=\\s]\\s*(?:/etc/|/tmp/|/var/|/proc/|~|\\.\\./)"
+        - regex: "--(?:proxy|socks|tunnel|forward|gateway|relay)\\s*[=\\s]\\s*(?:https?://|socks[45]://)"
+        - regex: "--(?:config|conf|settings|ini|rc|profile)\\s*[=\\s]\\s*(?:https?://|/tmp/|/dev/shm/|\\.\\./)"
+        - regex: "--(?:upload-pack|receive-pack|remote)\\s*[=\\s]"
+        - regex: "--(?:no-verify|no-check|insecure|disable-ssl|skip-tls|unsafe|allow-all|no-sandbox|disable-security)"
+        - regex: "(?:^|\\s)-[a-zA-Z]\\s+(?:/etc/|/tmp/|/dev/|/proc/|/sys/|~/.ssh)"
+        - regex: "(?i)--(?:post-checkout|post-merge|pre-commit|pre-push|post-receive)\\s*[=\\s]"
+    - type: pattern
+      part: tool_description
+      patterns:
+        - regex: "(?i)pass(?:es)?\\s+(?:arguments?|params?|flags?|options?)\\s+(?:directly\\s+)?to\\s+(?:the\\s+)?(?:underlying|system|shell|cli|command)"

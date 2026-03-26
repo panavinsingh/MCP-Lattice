@@ -1,0 +1,65 @@
+id: dns-exfiltration-patterns
+schema_version: 1
+info:
+  name: DNS Exfiltration Patterns
+  author: mcp-lattice-community
+  severity: high
+  description: |
+    Detects patterns consistent with DNS-based data exfiltration in MCP tool parameters
+    and responses. DNS exfiltration encodes stolen data as subdomain labels in DNS
+    queries (e.g., "stolen-data.attacker.com"), which are logged by the attacker's
+    authoritative DNS server. This technique bypasses most firewalls and network
+    monitoring because DNS traffic is rarely blocked. In MCP contexts, a malicious
+    tool could encode sensitive data (API keys, file contents, environment variables)
+    as DNS labels and trigger resolution through any network operation. Detection
+    covers hex-encoded subdomains, unusually long domain names, high subdomain depth,
+    and domains with entropy patterns consistent with encoded data.
+  tags:
+    - data-exfiltration
+    - dns
+    - covert-channel
+    - data-encoding
+  references:
+    - https://attack.mitre.org/techniques/T1048/003/
+    - https://cwe.mitre.org/data/definitions/200.html
+  remediation: |
+    1. Monitor DNS queries from MCP server processes for unusual patterns.
+    2. Block DNS queries with labels longer than 30 characters (legitimate labels rarely
+       exceed this).
+    3. Implement DNS allowlisting for MCP server processes.
+    4. Use DNS filtering/proxy services that detect exfiltration patterns.
+    5. Restrict MCP server network access to only required endpoints.
+    6. Log and analyze DNS query patterns for entropy anomalies.
+    7. Consider using DNS-over-HTTPS (DoH) with a trusted resolver that monitors for abuse.
+  false_positive_notes: |
+    CDN domains (e.g., CloudFront, Akamai) may have long subdomain labels. Domains with
+    UUIDs, hashes, or tracking IDs in subdomains are common in legitimate services. DKIM
+    and other DNS-based email authentication records contain long encoded values.
+    Evaluate the context and destination domain before flagging as exfiltration.
+
+classification:
+  attack-class: data-exfiltration
+  cosai-category: 5
+  owasp-agentic: ASI05
+
+mcp:
+  target: tools/call
+  analysis:
+    - type: pattern
+      part: input_schema
+      patterns:
+        # Hex-encoded subdomain labels (data exfil pattern)
+        - regex: "[0-9a-f]{16,}\\.\\w+\\.\\w{2,}"
+        # Base32/Base64-like subdomain labels
+        - regex: "[A-Za-z2-7]{16,}\\.\\w+\\.\\w{2,}"
+        # Unusually deep subdomain nesting (5+ levels)
+        - regex: "(?:[a-zA-Z0-9-]+\\.){5,}[a-zA-Z]{2,}"
+        # Domain labels exceeding normal length
+        - regex: "[a-zA-Z0-9]{32,}\\.(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,}"
+        # Numeric IP in parameter with data payload
+        - regex: "(?:nslookup|dig|host|resolve|dns)\\s+[a-zA-Z0-9]{8,}\\."
+    - type: pattern
+      part: tool_description
+      patterns:
+        - regex: "(?i)(?:dns|resolve|lookup|nslookup|dig)\\s+(?:query|request|resolution|lookup)"
+        - regex: "(?i)(?:encode|embed|hide|exfil|smuggle|tunnel)\\s+(?:data|info|content|payload)\\s+(?:in|via|through|using)\\s+(?:dns|domain|subdomain|hostname)"

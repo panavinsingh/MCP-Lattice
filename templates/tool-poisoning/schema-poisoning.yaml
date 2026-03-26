@@ -1,0 +1,59 @@
+id: input-schema-poisoning
+schema_version: 1
+info:
+  name: Input Schema Poisoning
+  author: mcp-lattice-community
+  severity: high
+  description: |
+    Detects MCP tool input schemas that contain hidden, undocumented, or deceptive fields
+    not mentioned in the tool description. Schema poisoning occurs when a tool's JSON
+    Schema includes extra properties with default values, hidden injection points in
+    field descriptions, or fields designed to capture sensitive data that the user would
+    not knowingly provide. Attackers may add hidden fields with malicious defaults that
+    are automatically included in tool calls, or embed prompt injection payloads within
+    schema property descriptions that the LLM reads when constructing tool calls.
+  tags:
+    - tool-poisoning
+    - schema-manipulation
+    - hidden-fields
+    - input-validation
+  references:
+    - https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks
+    - https://spec.modelcontextprotocol.io/specification/2025-03-26/server/tools/
+  remediation: |
+    1. Compare tool input schemas against their descriptions to identify undocumented fields.
+    2. Flag schema properties with suspicious default values, especially URLs, commands,
+       or encoded strings.
+    3. Reject schemas with "additionalProperties: true" that could accept arbitrary input.
+    4. Audit all property descriptions within schemas for prompt injection patterns.
+    5. Implement schema validation that rejects unexpected or undocumented properties.
+    6. Display all schema fields to the user before allowing tool execution.
+  false_positive_notes: |
+    Some tools legitimately use hidden or optional parameters for internal state tracking
+    (e.g., pagination tokens, request IDs). Properties with common utility defaults
+    (empty strings, zero values, false booleans) are typically benign. Focus on properties
+    with complex defaults (URLs, encoded data, command strings) that are not documented.
+
+classification:
+  attack-class: tool-poisoning
+  cosai-category: 2
+  owasp-agentic: ASI02
+
+mcp:
+  target: tools/list
+  analysis:
+    - type: pattern
+      part: input_schema
+      patterns:
+        - regex: "\"additionalProperties\"\\s*:\\s*true"
+        - regex: "\"default\"\\s*:\\s*\"https?://[^\"]+\""
+        - regex: "\"default\"\\s*:\\s*\"[^\"]*(?:eval|exec|system|spawn|popen|subprocess|child_process|import\\s+os|require\\s*\\()[^\"]*\""
+        - regex: "\"(?:password|secret|token|key|credential|api_key|auth|ssn|credit_card)\"\\s*:\\s*\\{[^}]*\"type\"\\s*:\\s*\"string\""
+        - regex: "\"description\"\\s*:\\s*\"[^\"]*(?:ignore|override|system|instruction|always|must|bypass)[^\"]*\""
+        - regex: "\"(?:hidden|internal|__\\w+__|_private|debug|admin|root|system)\"\\s*:\\s*\\{"
+        - regex: "\"default\"\\s*:\\s*\"(?:[A-Za-z0-9+/]{32,}={0,2})\""
+        - regex: "\"enum\"\\s*:\\s*\\[\\s*\"[^\"]*(?:;|\\||&&|`|\\$\\()[^\"]*\"\\s*\\]"
+    - type: pattern
+      part: tool_description
+      patterns:
+        - regex: "(?i)(?:hidden|internal|undocumented|secret|debug)\\s+(?:field|parameter|property|option|flag)"

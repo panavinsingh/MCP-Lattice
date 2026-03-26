@@ -1,0 +1,60 @@
+id: dependency-confusion-indicators
+schema_version: 1
+info:
+  name: Dependency Confusion Indicators
+  author: mcp-lattice-community
+  severity: high
+  description: |
+    Detects dependency confusion attack indicators in MCP server configurations and
+    package references. Dependency confusion exploits the way package managers resolve
+    packages when both public and private registries are configured. An attacker publishes
+    a package on a public registry (npm, PyPI) with the same name as an internal/private
+    package but with a higher version number. The package manager may prefer the public
+    version, installing the attacker's malicious code. This detection identifies
+    configurations mixing public and private registries, unscoped packages that should
+    be scoped, and version patterns suggesting confusion attempts.
+  tags:
+    - supply-chain
+    - dependency-confusion
+    - registry-mixup
+    - package-management
+  references:
+    - https://medium.com/@alex.birsan/dependency-confusion-4a5d60fec610
+    - https://cwe.mitre.org/data/definitions/427.html
+  remediation: |
+    1. Use scoped packages (e.g., @myorg/package-name) for all internal packages.
+    2. Configure package managers to use a single registry or properly proxy private packages.
+    3. Reserve internal package names on public registries as empty placeholder packages.
+    4. Use .npmrc or pip.conf to explicitly route scoped packages to the correct registry.
+    5. Implement package verification that checks the registry source before installation.
+    6. Pin exact versions and use lock files with integrity hashes.
+    7. Use --registry flags or registry configuration to prevent accidental public resolution.
+  false_positive_notes: |
+    Organizations that legitimately use multiple registries (e.g., a private npm registry
+    alongside the public one) may trigger registry mixing detection. Properly configured
+    scoped routing in .npmrc mitigates this. Packages that exist on both public and private
+    registries by design (mirrored packages) are expected.
+
+classification:
+  attack-class: supply-chain
+  cosai-category: 6
+  owasp-agentic: ASI06
+
+mcp:
+  target: connection
+  analysis:
+    - type: pattern
+      part: resource_uri
+      patterns:
+        # Multiple registry references in same config
+        - regex: "(?i)(?:registry|index[_-]?url)\\s*[=:]\\s*['\"]?https?://(?!registry\\.npmjs\\.org|pypi\\.org|rubygems\\.org)[^\\s'\"]+['\"]?"
+        # Private registries without scoping
+        - regex: "(?i)(?:registry)\\s*[=:]\\s*['\"]?https?://(?:artifactory|nexus|verdaccio|gitea|gitlab|github)[^\\s'\"]*['\"]?"
+        # Unscoped private-looking package names
+        - regex: "(?i)(?:npm\\s+install|pip\\s+install|gem\\s+install)\\s+(?!@)(?:internal|private|corp|company|org|enterprise)[-_]"
+        # Extremely high version numbers (confusion attempt)
+        - regex: "(?:@[^/]+/[^@]+|[a-z][a-z0-9-]+)@(?:9{2,}|[1-9]\\d{3,})\\."
+        # Mixed registry indicators in config files
+        - regex: "(?i)\"(?:registry|registries)\"\\s*:\\s*(?:\\[|\\{)[^\\]\\}]*(?:npmjs\\.org|registry\\.npm)[^\\]\\}]*(?:artifactory|nexus|verdaccio|private|internal|corp)"
+        # Pre/post install scripts (common in confusion attacks)
+        - regex: "(?i)\"(?:preinstall|postinstall|install)\"\\s*:\\s*\"(?:curl|wget|bash|sh|python|node|powershell)"
