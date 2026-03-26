@@ -1,0 +1,49 @@
+# Binaries
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test outputs
+*.test
+coverage.out
+coverage.html
+
+# Scan outputs (don't commit real scan results to public repo)
+scan_results.json
+scan_results.sarif
+scan_report.html
+test_results.*
+test_report.*
+demo_output.txt
+
+# Research data that shouldn't be public
+research/results/
+research/npm_search_*.json
+research/npm_mcp_servers.json
+research/batch_scan_results.json
+research/vulns/CONFIDENTIAL_*
+
+# Submission package (private until accepted)
+docs/blackhat_briefings_2026/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Dependencies
+vendor/
+node_modules/
+
+# Temporary files
+*.tmp
+*.log
+__pycache__/
