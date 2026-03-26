@@ -1,7 +1,5 @@
 # MCP-Lattice Large-Scale Scanning Results
 
-**DRAFT -- Data for White Paper Section 7**
-
 ## Scan Campaign Overview
 
 | Metric | Value |
@@ -96,6 +94,3 @@ These numbers should be compared against published ecosystem research:
 3. The data supports the thesis that per-server scanning is fundamentally insufficient
 4. These results provide the empirical basis for the white paper's Section 7
 
----
-
-*This data was generated automatically by scan_analysis.js and should be verified before inclusion in the submission.*

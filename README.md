@@ -53,15 +53,16 @@ MCP-Lattice builds a capability graph across all configured MCP servers, modelin
 
 ## Results
 
-We scanned 100 MCP servers from the npm registry:
+We attempted to scan 100 MCP servers from the npm registry (75 scanned successfully, 25 timed out):
 
 | Metric | Value |
-|---|---|
+| --- | --- |
 | **Total findings** | 1,275 (759 Critical, 505 High, 11 Medium) |
 | **Cross-server attack chains** | 1,082 (84.9% of findings) |
-| **Servers with findings** | 45.3% |
-| **False positive rate** | 0% |
-| **Top vulnerable servers** | Heroku (116), Notion (94), CircleCI (89), Salesforce (55) |
+| **Servers with findings** | 34 of 75 scanned |
+| **Most affected servers** | browser-devtools-mcp (150), Heroku (116), Notion (94), CircleCI (89) |
+
+Full methodology and reproduction scripts are in the [`research/`](research/) directory.
 
 ## Contributing
 
